@@ -3,7 +3,7 @@ import json
 import logging
 import os
 
-log = logging.getLogger("aspen.settings")
+log = logging.getLogger("woofie.settings")
 
 
 class Settings:
@@ -25,6 +25,11 @@ class Settings:
 
     def set(self, key, value):
         self.data[key] = value
+        self.save()
+
+    def clear(self):
+        """Forget every saved choice."""
+        self.data = {}
         self.save()
 
     def save(self):

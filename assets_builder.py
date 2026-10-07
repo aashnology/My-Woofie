@@ -1,7 +1,7 @@
-"""Generates Aspen's pixel-art avatars and sound effects on first run.
+"""Generates My-Woofie's pixel-art avatars and sound effects on first run.
 
 Existing files in assets/ are never overwritten, so you can drop in your own
-art or audio with the same file names and Aspen will use them.
+art or audio with the same file names and My-Woofie will use them.
 """
 import logging
 import math
@@ -15,7 +15,7 @@ from PyQt6.QtGui import QColor, QImage, QPainter
 
 import config
 
-log = logging.getLogger("aspen.assets")
+log = logging.getLogger("woofie.assets")
 
 CANVAS = 32
 RATE = 22050

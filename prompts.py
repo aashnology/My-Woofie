@@ -1,9 +1,9 @@
-"""Message banks for Aspen's speech bubbles, loaded from plain text files."""
+"""Message banks for My-Woofie's speech bubbles, loaded from plain text files."""
 import logging
 import os
 import random
 
-log = logging.getLogger("aspen.prompts")
+log = logging.getLogger("woofie.prompts")
 
 DEFAULT_BREAK = ["Time for a break!"]
 DEFAULT_FOCUS = ["Time to get back to focus!"]

@@ -1,6 +1,6 @@
-# Aspen Technical Guide
+# My-Woofie Technical Guide (Version 1)
 
-This guide explains how Aspen works internally: the architecture, the logic of each module, the features built on top, and how to extend them. For installation and a feature overview, see the [README](../README.md).
+This guide explains how My-Woofie works internally: the architecture, the logic of each module, the features built on top, and how to extend them. For installation and a feature overview, see the [README](../README.md).
 
 ## Contents
 
@@ -16,15 +16,17 @@ This guide explains how Aspen works internally: the architecture, the logic of e
 10. [Asset pipeline (`assets_builder.py`, `tools/`)](#10-asset-pipeline-assets_builderpy-tools)
 11. [Configuration reference](#11-configuration-reference)
 12. [Logging and debugging](#12-logging-and-debugging)
-13. [Extending Aspen](#13-extending-aspen)
-14. [Known limitations](#14-known-limitations)
+13. [Extending My-Woofie](#13-extending-my-woofie)
+14. [Stopping, single instance and pausing](#14-stopping-single-instance-and-pausing-instancepy)
+15. [Tests](#15-tests)
+16. [Known limitations](#16-known-limitations)
 
 ---
 
 ## 1. Design principles
 
 - **Local and hardcoded.** All timers, state logic, cursor tracking and audio triggers are plain Python. There are no API calls or network access.
-- **Privacy by construction.** Aspen never captures pixels, logs keys, reads files or records window titles. The only inputs are the clock and the cursor position.
+- **Privacy by construction.** My-Woofie never captures pixels, logs keys, reads files or records window titles. The only inputs are the clock and the cursor position.
 - **Modular.** Each concern lives in one module with a small interface, so any piece can be debugged or replaced on its own.
 - **Never crash on missing resources.** Missing sprites are redrawn in memory, missing audio falls back to a system beep, and missing prompt files fall back to a built-in message.
 - **Easy to debug.** `python main.py --test` shrinks the 4-hour timer to 10 seconds, and every state change is logged.
@@ -33,7 +35,7 @@ This guide explains how Aspen works internally: the architecture, the logic of e
 
 ```
                       ┌───────────────┐
-        QCursor.pos() │   main.py     │  AspenApp: owns everything,
+        QCursor.pos() │   main.py     │  WoofieApp: owns everything,
         ─────────────▶│  (controller) │  runs the 33 ms tick
                       └──────┬────────┘
         ┌───────────┬────────┼─────────┬──────────────┬────────────┐
@@ -52,11 +54,11 @@ This guide explains how Aspen works internally: the architecture, the logic of e
 
 ## 3. The main loop
 
-`AspenApp._tick` runs every `FRAME_INTERVAL_MS` (33 ms, about 30 frames per second) from a `QTimer`:
+`WoofieApp._tick` runs every `FRAME_INTERVAL_MS` (33 ms, about 30 frames per second) from a `QTimer`:
 
 1. Read the cursor position with `QCursor.pos()`.
 2. Feed it to `SessionTimer.update()`. If the phase changes, call `_on_phase`.
-3. Decide whether to chase: Aspen chases while the mouse moved within the last `CHASE_WINDOW_SECONDS`.
+3. Decide whether to chase: My-Woofie chases while the mouse moved within the last `CHASE_WINDOW_SECONDS`.
 4. Call `Pet.update()` to advance the state machine and position.
 5. Sync the pet window: position, animation, facing and bob offset.
 6. Move or expire the speech bubble.
@@ -75,8 +77,8 @@ FOCUS ──(focus limit reached)──▶ BREAK ──(break time elapsed)─�
 | Phase | Meaning | Leaves when |
 |---|---|---|
 | `FOCUS` | The user is working. | `focus_limit` seconds of continuous use have passed. |
-| `BREAK` | Aspen is barking; the break countdown runs. | `break_limit` seconds have passed. |
-| `HAUL` | Break is over; Aspen calls the user back. | `haul_display` seconds have passed, then a new focus session starts. |
+| `BREAK` | My-Woofie is barking; the break countdown runs. | `break_limit` seconds have passed. |
+| `HAUL` | Break is over; My-Woofie calls the user back. | `haul_display` seconds have passed, then a new focus session starts. |
 
 ### Presence detection
 
@@ -117,9 +119,9 @@ Alert states take priority: while one is active, cursor chasing is ignored. `set
 
 ### Movement
 
-- **Chasing.** The target is the cursor offset by half the sprite size so Aspen centers on it. Speed is `PET_SPEED × (1 + 0.5 × min(distance / 600, 1))` (2 to 3 pixels per frame by default), an easy amble that is a little quicker when the cursor is far away. He stops `CHASE_STOP_DISTANCE_PX` from the cursor.
-- **Roaming.** Roaming speed is half of `PET_SPEED`, with frequent rests of two to six seconds. The screen edge is treated as a rectangular loop of length `2 × (width + height)`. Aspen keeps a single distance `s` along that loop. `_point_at(s)` converts it to coordinates, and moving is just increasing or decreasing `s`. This is why he follows the edge cleanly, including around corners.
-- **Returning to the edge.** When roaming resumes from elsewhere (after chasing or an alert), `_nearest_s()` finds the closest point on the loop and Aspen walks there in a straight line before rejoining it.
+- **Chasing.** The target is the cursor offset by half the sprite size so My-Woofie centers on it. Speed is `PET_SPEED × (1 + 0.5 × min(distance / 600, 1))` (2 to 3 pixels per frame by default), an easy amble that is a little quicker when the cursor is far away. He stops `CHASE_STOP_DISTANCE_PX` from the cursor.
+- **Roaming.** Roaming speed is half of `PET_SPEED`, with frequent rests of two to six seconds. The screen edge is treated as a rectangular loop of length `2 × (width + height)`. My-Woofie keeps a single distance `s` along that loop. `_point_at(s)` converts it to coordinates, and moving is just increasing or decreasing `s`. This is why he follows the edge cleanly, including around corners.
+- **Returning to the edge.** When roaming resumes from elsewhere (after chasing or an alert), `_nearest_s()` finds the closest point on the loop and My-Woofie walks there in a straight line before rejoining it.
 - **Bounds.** Positions are clamped to the screen. `set_size()` recomputes bounds when the avatar (and sprite size) changes.
 
 ### Animation selection
@@ -128,18 +130,19 @@ Alert states take priority: while one is active, cursor chasing is ignored. `set
 
 ## 6. Windows and rendering (`gui.py`, `retro.py`)
 
-Aspen is three borderless, always-on-top, translucent windows (`Qt.Tool` keeps them out of the taskbar).
+My-Woofie is three borderless, always-on-top, translucent windows (`Qt.Tool` keeps them out of the taskbar).
 
 | Window | Click-through | Notes |
 |---|---|---|
-| `PetWindow` | Partly | The window mask is set from the sprite's opaque pixels, so clicks on transparent areas pass to the apps below, while clicks on the dog reach Aspen (pats). |
+| `PetWindow` | Partly | The window mask is set from the sprite's opaque pixels, so clicks on transparent areas pass to the apps below, while clicks on the dog reach My-Woofie (pats). |
 | `HudWindow` | Fully (`WindowTransparentForInput`) | Top-center status bar. |
 | `BubbleWindow` | Fully | Follows the dog's head. |
 
 ### Sprite scaling and flipping
 
-- **Cropping.** `load_frames()` finds the smallest box containing the dog across all of an avatar's frames and crops every frame to it. The dog's size is therefore independent of the canvas.
-- **Scaling.** The target size (`SPRITE_TARGET_PX`, default 40, or the size chosen in the menu) refers to the dog's longest side. For large sizes (a factor of 1.8 or more) frames are scaled by a whole number with nearest-neighbor so pixels stay sharp. For small sizes the frame is enlarged 4× with nearest-neighbor and then reduced smoothly to the exact size, which keeps a tiny dog readable.
+- **Fixed size.** Every frame of every dog is exactly `config.SPRITE_SIZE` = **53 × 47 pixels**, so the window is always that size regardless of the avatar.
+- **Cropping and fitting.** `load_frames()` finds the smallest box containing the dog across all of an avatar's frames and crops every frame to it. The dog is scaled by `min(53 / box_width, 47 / box_height)` (keeping its proportions), then placed bottom-centre on a transparent 53 × 47 canvas. Wide dogs fill the width, tall ones the height.
+- **Scaling method.** The frame is enlarged 4× with nearest-neighbor and then reduced smoothly to the exact size, which keeps a tiny dog readable. The selector's large previews use the same function with a bigger size and whole-number nearest-neighbor steps.
 - Facing is handled by mirroring the pixmap. Each avatar declares its native facing (Bailey's art faces left), and the window flips whenever the pet's direction differs from it.
 - Mirrored pixmaps and their masks are cached so nothing is recomputed per frame.
 
@@ -155,11 +158,12 @@ Aspen is three borderless, always-on-top, translucent windows (`Qt.Tool` keeps t
 - `available_avatars()` lists the avatars whose art exists. The selector shows each as a card with its idle frame.
 - Inputs: arrow keys, mouse click, double-click or Enter/Space to confirm, Esc to cancel. The selected card's border blinks.
 - `AvatarSelector.choose(current)` shows the dialog modally and returns the id or `None`. Previews are loaded at 150 px, independent of the on-screen size.
-- **Flow:** on startup `pick_avatar()` uses the saved avatar when there is one, and otherwise (or with `--select`) opens the selector. The tray menu's "Change avatar..." swaps the avatar live: new frames, new native facing, new pet size.
-- `Settings` is a small JSON file (`settings.json`, git-ignored) holding `avatar`, `muted`, `size_px`, `hud_always`, `focus_minutes` and `break_minutes`. Read and write errors are logged and never fatal.
+- **Flow:** on startup `pick_avatar()` uses the saved avatar when there is one. It opens the selector on first run, with `--select`, or when "ask me every time" is ticked (stored as `ask_avatar_each_launch`). If the selector is dismissed, the default is used for that run but **not saved**, so the user is asked again next time.
+- **Reset.** `--reset` deletes `settings.json` before startup; the menu's "Reset all settings..." clears the saved values, reruns the selector and timer dialog, and rebuilds the menu so its check marks match. The tray menu's "Change avatar..." swaps the avatar live: new frames, new native facing, new pet size.
+- `Settings` is a small JSON file (`settings.json`, git-ignored) holding `avatar`, `ask_avatar_each_launch`, `muted`, `hud_always`, `focus_minutes` and `break_minutes`. Read and write errors are logged and never fatal.
 - **Timer settings.** `timer_dialog.py` is a styled `QDialog` with two spin boxes (focus 1 to 720 minutes, break 1 to 120) and preset buttons. It runs on first launch, with `--settings`, and from the menu.
-- **Menu.** `AspenApp._build_menu()` creates one `QMenu` (timer settings, avatar, size, focus meter, mute, quit). It is attached to the tray icon and also shown when the pet window emits `menu_requested` (right-click), so the controls are reachable even if the tray icon is hidden.
-- **Command line.** `--select`, `--settings`, `--test`, `--focus MIN`, `--break MIN`, parsed with `argparse` (`parse_known_args`, so Qt's own flags still pass through).
+- **Menu.** `WoofieApp._build_menu()` creates one `QMenu` (pause, timer settings, avatar, focus meter, mute, reset, quit). It is attached to the tray icon and also shown when the pet window emits `menu_requested` (right-click), so the controls are reachable even if the tray icon is hidden.
+- **Command line.** `--select`, `--reset`, `--settings`, `--stop`, `--test`, `--focus MIN`, `--break MIN`, `--version`, parsed with `argparse` (`parse_known_args`, so Qt's own flags still pass through).
 
 ## 8. Audio (`audio.py`)
 
@@ -181,7 +185,7 @@ Aspen is three borderless, always-on-top, translucent windows (`Qt.Tool` keeps t
 - `PromptBank(path, fallback, order)` reads a text file: one message per line, blank lines and `#` comments ignored.
 - **Rotation:** `"sequential"` walks the lines and wraps around; `"random"` picks a random line that differs from the previous one.
 - **Live reload:** the file's modification time is checked on every `next()`, so edits apply without restarting. If the file is missing or empty, a built-in message is used (a warning is logged once).
-- `AspenApp._say()` shows the bubble when `ALWAYS_SHOW_BUBBLES` is true or the player is silent, and removes it after `BUBBLE_SECONDS`.
+- `WoofieApp._say()` shows the bubble when `ALWAYS_SHOW_BUBBLES` is true or the player is silent, and removes it after `BUBBLE_SECONDS`.
 - Triggers: entering `BREAK` uses the break bank; entering `HAUL` uses the focus bank (and also a tray notification when available).
 
 ## 10. Asset pipeline (`assets_builder.py`, `tools/`)
@@ -244,8 +248,8 @@ All values live in `config.py`.
 | `ALWAYS_SHOW_BUBBLES` | `True` | `False` = bubbles only when silent. |
 | `BUBBLE_SECONDS` | 8 | Bubble lifetime. |
 | `PROMPT_ORDER` | `"sequential"` | Or `"random"`. |
-| `SPRITE_TARGET_PX` | 40 | Default on-screen size of the dog's longest side. |
-| `SIZE_CHOICES` | Tiny 32, Small 40, Medium 64, Large 96 | Sizes offered in the menu. |
+| `SPRITE_SIZE` | (53, 47) | Exact on-screen size of every dog (width, height). |
+| `VERSION` | `"1.0.0"` | Shown by `--version`. |
 | `FRAME_INTERVAL_MS` | 33 | Tick rate. |
 | `ANIMATION_FRAME_MS` | 400 | Time per animation frame. |
 | `LOG_LEVEL` | `"DEBUG"` | Console log verbosity. |
@@ -255,26 +259,38 @@ All values live in `config.py`.
 Python's `logging` module prints to the terminal (visible in the VS Code console). Typical output:
 
 ```
-INFO | aspen.timer    | Phase FOCUS -> BREAK
-INFO | aspen.pet      | State CHASE_STATE -> BARK_ALERT_STATE
-INFO | aspen.prompts  | Loaded 5 prompts from break_prompts.txt
-INFO | aspen.timer    | Phase BREAK -> HAUL
+INFO | woofie.timer    | Phase FOCUS -> BREAK
+INFO | woofie.pet      | State CHASE_STATE -> BARK_ALERT_STATE
+INFO | woofie.prompts  | Loaded 5 prompts from break_prompts.txt
+INFO | woofie.timer    | Phase BREAK -> HAUL
 ```
 
 Debugging tips:
 
 - Run `python main.py --test` (or set `TEST_MODE = True`) and move the mouse steadily to see a full cycle in about 20 seconds. If the mouse is still for 8 seconds the focus timer resets.
-- Logger names (`aspen.timer`, `aspen.pet`, `aspen.audio`, ...) identify the module a message came from.
+- Logger names (`woofie.timer`, `woofie.pet`, `woofie.audio`, ...) identify the module a message came from.
 - The timer and pet have no Qt dependency, so you can script them in a plain Python shell with a fake clock.
 
-## 13. Extending Aspen
+## 13. Extending My-Woofie
 
 - **Add an avatar.** Add an entry to `AVATARS`. A drawn avatar needs a palette; a design avatar needs `assets/designs/<id>.png` and a `spec`. It then appears in the selector.
 - **Change messages or sounds.** Edit the text files, replace WAV files, or change `SOUND_EVENTS`.
-- **Add a new alert.** Add a phase in `timer.py`, a state in `pet.py` mapped in `set_phase()`, and handle it in `AspenApp._on_phase()`.
+- **Add a new alert.** Add a phase in `timer.py`, a state in `pet.py` mapped in `set_phase()`, and handle it in `WoofieApp._on_phase()`.
 - **Change the cycle.** The timer rules are in `_advance()` and `update()`, in one file.
 
-## 14. Known limitations
+## 14. Stopping, single instance and pausing (`instance.py`)
+
+- **Quit.** The menu's Quit calls `QApplication.quit()`; Ctrl+C is handled by a `SIGINT` handler that does the same.
+- **Single instance.** At startup `send_command("ping")` tries to reach a running copy over a `QLocalSocket` (same machine only, named `my-woofie-companion`). If one answers, the new launch prints a message and exits, so there is never a second dog.
+- **`--stop`.** Sends `quit` over the same socket; the running copy receives it through `InstanceServer.command_received` and quits. Stale sockets from a crash are removed when the server starts.
+- **Pause.** The menu's Pause hides the dog, bubble and HUD and skips the tick; unpausing starts a fresh focus session.
+- **First-run hint.** On the first launch a bubble says to right-click for settings or to quit (`hint_shown` is saved).
+
+## 15. Tests
+
+`python -m unittest discover -s tests` runs 19 tests with no GUI needed: the timer (cycle, limits, away reset, jitter), the pet (states, chasing, bounds, resize), the message banks (rotation, comments, fallback, live reload) and settings (round trip, corrupt file). The timer takes an injectable clock, so hours are simulated instantly.
+
+## 16. Known limitations
 
 - Verified with headless runs and unit-style simulations; behavior on real Windows and macOS desktops (click-through masks, tray notifications, audio devices) should be checked on your machine.
 - Presence is mouse-only by design, so working without touching the mouse looks like being away.

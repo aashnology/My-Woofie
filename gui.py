@@ -10,7 +10,7 @@ import config
 import retro
 from assets_builder import ANIMATIONS, render_frame
 
-log = logging.getLogger("aspen.gui")
+log = logging.getLogger("woofie.gui")
 
 SHADOW = 4  # transparent margin kept free for drop shadows
 
@@ -37,11 +37,11 @@ def _content_box(images):
 
 
 def _scale(img, factor):
-    """Large sizes use whole-number nearest scaling (crisp); small sizes are supersampled."""
+    """Large previews scale in whole-number steps; small sizes are supersampled for clean edges."""
     pixmap = QPixmap.fromImage(img)
     ignore = Qt.AspectRatioMode.IgnoreAspectRatio
-    if factor >= 1.8:
-        n = round(factor)
+    if factor >= 3:
+        n = int(factor)
         return pixmap.scaled(pixmap.width() * n, pixmap.height() * n, ignore,
                              Qt.TransformationMode.FastTransformation)
     big = pixmap.scaled(pixmap.width() * 4, pixmap.height() * 4, ignore,
@@ -50,9 +50,23 @@ def _scale(img, factor):
                       ignore, Qt.TransformationMode.SmoothTransformation)
 
 
-def load_frames(avatar, target_px=None):
-    """Load an avatar's frames, crop them to the dog and scale so its longest side is target_px."""
-    target = target_px or config.SPRITE_TARGET_PX
+def _fit(img, factor, width, height):
+    """Place the scaled dog bottom-centre on a transparent canvas of exactly width x height."""
+    dog = _scale(img, factor)
+    canvas = QPixmap(width, height)
+    canvas.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(canvas)
+    painter.drawPixmap((width - dog.width()) // 2, height - dog.height(), dog)
+    painter.end()
+    return canvas
+
+
+def load_frames(avatar, size=None):
+    """Load an avatar's frames, crop them to the dog and fit them onto a fixed-size canvas.
+
+    Every frame of every avatar comes out exactly `size` pixels (default config.SPRITE_SIZE).
+    """
+    width, height = size or config.SPRITE_SIZE
     images = {}
     for anim, names in ANIMATIONS.items():
         images[anim] = []
@@ -63,8 +77,9 @@ def load_frames(avatar, target_px=None):
                 img = render_frame(name, avatar)
             images[anim].append(img.convertToFormat(QImage.Format.Format_ARGB32))
     box = _content_box([img for group in images.values() for img in group])
-    factor = target / max(box.width(), box.height())
-    return {anim: [_scale(img.copy(box), factor) for img in group] for anim, group in images.items()}
+    factor = min(width / box.width(), height / box.height())
+    return {anim: [_fit(img.copy(box), factor, width, height) for img in group]
+            for anim, group in images.items()}
 
 
 def _overlay(widget, click_through):

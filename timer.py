@@ -10,7 +10,7 @@ from enum import Enum
 
 import config
 
-log = logging.getLogger("aspen.timer")
+log = logging.getLogger("woofie.timer")
 
 
 class Phase(Enum):

@@ -1,6 +1,6 @@
-"""One-off helper: turns the artwork in Aspen_designs.pdf into clean pixel-art base sprites.
+"""One-off helper: turns the artwork in My-Woofie_designs.pdf into clean pixel-art base sprites.
 
-Usage: python tools/import_designs.py path/to/Aspen_designs.pdf
+Usage: python tools/import_designs.py path/to/My-Woofie_designs.pdf
 Requires: pillow, numpy and poppler's pdfimages. The generated PNGs in assets/designs/ are
 committed to the repo, so you only need to run this again if the source artwork changes.
 """

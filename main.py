@@ -1,21 +1,23 @@
-"""Aspen entry point.
+"""My-Woofie entry point.
 
-Usage: python main.py [--select] [--settings] [--test] [--focus MIN] [--break MIN]
+Usage: python main.py [--select] [--reset] [--settings] [--test] [--focus MIN] [--break MIN] [--stop]
 """
 import argparse
 import logging
+import os
 import signal
 import sys
 import time
 
 from PyQt6.QtCore import QTimer
-from PyQt6.QtGui import QActionGroup, QCursor, QIcon
+from PyQt6.QtGui import QCursor, QIcon
 from PyQt6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 import config
 import retro
 from assets_builder import AVATARS, available_avatars, ensure_assets
 from audio import SoundPlayer
+from instance import InstanceServer, send_command
 from gui import BubbleWindow, HudWindow, PetWindow, format_clock, load_frames
 from pet import Pet
 from prompts import DEFAULT_BREAK, DEFAULT_FOCUS, PromptBank
@@ -24,7 +26,7 @@ from settings import Settings
 from timer import Phase, SessionTimer
 from timer_dialog import TimerDialog
 
-log = logging.getLogger("aspen.main")
+log = logging.getLogger("woofie.main")
 
 
 def minutes_text(minutes):
@@ -45,16 +47,15 @@ def resolve_timers(settings, args):
                 haul=config.HAUL_DISPLAY_SECONDS)
 
 
-class AspenApp:
+class WoofieApp:
     def __init__(self, app, settings, avatar, timers, test_mode):
         self.app = app
         self.settings = settings
         self.avatar = avatar
         self.test_mode = test_mode
-        self.size_px = int(settings.get("size_px", config.SPRITE_TARGET_PX))
         self.hud_always = bool(settings.get("hud_always", config.HUD_ALWAYS_VISIBLE))
         self.screen = app.primaryScreen().availableGeometry()
-        self.frames = load_frames(avatar, self.size_px)
+        self.frames = load_frames(avatar)
         sprite = self.frames["idle"][0]
 
         self.window = PetWindow(self.frames, AVATARS[avatar].get("facing", 1))
@@ -69,6 +70,7 @@ class AspenApp:
         self.break_prompts = PromptBank(config.BREAK_PROMPTS_FILE, DEFAULT_BREAK, config.PROMPT_ORDER)
         self.focus_prompts = PromptBank(config.FOCUS_PROMPTS_FILE, DEFAULT_FOCUS, config.PROMPT_ORDER)
         self._bubble_until = 0.0
+        self.paused = False
         self.tray = None
 
         self._build_menu()
@@ -80,22 +82,22 @@ class AspenApp:
         self.clock = QTimer()
         self.clock.timeout.connect(self._tick)
         self.clock.start(config.FRAME_INTERVAL_MS)
+        if not settings.get("hint_shown"):
+            QTimer.singleShot(1500, self._show_first_hint)
+
+    def _show_first_hint(self):
+        self._say("Hi! Right-click me for settings, or to quit.")
+        self.settings.set("hint_shown", True)
 
     # ----- menu and tray -----------------------------------------------------
     def _build_menu(self):
-        """One menu shared by the tray icon and a right-click on Aspen."""
+        """One menu shared by the tray icon and a right-click on My-Woofie."""
         menu = QMenu()
+        pause = menu.addAction("Pause My-Woofie (hide him for now)")
+        pause.setCheckable(True)
+        pause.toggled.connect(self._set_paused)
         menu.addAction("Timer settings...").triggered.connect(self._open_timer_settings)
-        menu.addAction("Change avatar...").triggered.connect(self._change_avatar)
-
-        size_menu = menu.addMenu("Size")
-        self._size_group = QActionGroup(menu)
-        for label, px in config.SIZE_CHOICES.items():
-            action = size_menu.addAction(label)
-            action.setCheckable(True)
-            action.setChecked(px == self.size_px)
-            action.triggered.connect(lambda _=False, p=px: self._set_size(p))
-            self._size_group.addAction(action)
+        menu.addAction("Change avatar...").triggered.connect(lambda _=False: self._change_avatar())
 
         meter = menu.addAction("Always show focus meter")
         meter.setCheckable(True)
@@ -107,41 +109,70 @@ class AspenApp:
         mute.setChecked(bool(self.settings.get("muted", False)))
         mute.toggled.connect(self._set_muted)
 
+        menu.addAction("Reset all settings...").triggered.connect(self._reset_settings)
+
         menu.addSeparator()
-        menu.addAction("Quit Aspen").triggered.connect(self.app.quit)
+        menu.addAction("Quit My-Woofie (stop the program)").triggered.connect(self.app.quit)
         self._menu = menu
 
     def _setup_tray(self):
         if not QSystemTrayIcon.isSystemTrayAvailable():
-            log.warning("System tray unavailable; right-click Aspen for the menu")
+            log.warning("System tray unavailable; right-click My-Woofie for the menu")
             return
         self.tray = QSystemTrayIcon(QIcon(self.frames["idle"][0]), self.app)
         self.tray.setContextMenu(self._menu)
-        self.tray.setToolTip("Aspen (right-click for menu)")
+        self.tray.setToolTip("My-Woofie (right-click for menu)")
         self.tray.show()
 
     # ----- menu actions ----------------------------------------------------------
     def _reload_frames(self):
-        self.frames = load_frames(self.avatar, self.size_px)
+        self.frames = load_frames(self.avatar)
         self.window.set_frames(self.frames, AVATARS[self.avatar].get("facing", 1))
         self.pet.set_size((self.window.width(), self.window.height()))
         if self.tray is not None:
             self.tray.setIcon(QIcon(self.frames["idle"][0]))
 
     def _change_avatar(self):
-        chosen = AvatarSelector.choose(self.avatar)
-        if chosen is None or chosen == self.avatar:
+        ask = bool(self.settings.get("ask_avatar_each_launch", False))
+        chosen = AvatarSelector.choose(self.avatar, ask)
+        if chosen is None:
             return
-        self.avatar = chosen
-        self._reload_frames()
-        self.settings.set("avatar", chosen)
-        log.info("Avatar changed to %s", chosen)
+        avatar, ask = chosen
+        self.settings.set("ask_avatar_each_launch", ask)
+        if avatar != self.avatar:
+            self.avatar = avatar
+            self._reload_frames()
+            self.settings.set("avatar", avatar)
+            log.info("Avatar changed to %s", avatar)
 
-    def _set_size(self, px):
-        self.size_px = px
-        self._reload_frames()
-        self.settings.set("size_px", px)
-        log.info("Size set to %dpx", px)
+    def _reset_settings(self):
+        """Forget every saved choice and run the setup screens again."""
+        self.settings.clear()
+        self.audio.muted = False
+        self.hud_always = config.HUD_ALWAYS_VISIBLE
+        log.info("Settings reset")
+        chosen = AvatarSelector.choose(config.DEFAULT_AVATAR, False)
+        if chosen is not None:
+            self.avatar = chosen[0]
+            self.settings.set("avatar", chosen[0])
+            self.settings.set("ask_avatar_each_launch", chosen[1])
+            self._reload_frames()
+        self._open_timer_settings()
+        self._build_menu()
+        if self.tray is not None:
+            self.tray.setContextMenu(self._menu)
+
+    def _set_paused(self, paused):
+        self.paused = paused
+        if paused:
+            self.window.hide()
+            self.bubble.hide()
+            self.hud.hide()
+        else:
+            self.session.restart_focus()
+            self.pet.set_phase(Phase.FOCUS)
+            self.window.show()
+        log.info("My-Woofie %s", "paused" if paused else "resumed")
 
     def _set_hud_always(self, value):
         self.hud_always = value
@@ -171,6 +202,8 @@ class AspenApp:
 
     # ----- main loop ---------------------------------------------------------------
     def _tick(self):
+        if self.paused:
+            return
         now = time.monotonic()
         point = QCursor.pos()
         cursor = (point.x(), point.y())
@@ -223,7 +256,7 @@ class AspenApp:
             self.audio.play_event("break_end")
             text = self._say(self.focus_prompts.next())
             if self.tray is not None:
-                self.tray.showMessage("Aspen", text, QSystemTrayIcon.MessageIcon.Information, 8000)
+                self.tray.showMessage("My-Woofie", text, QSystemTrayIcon.MessageIcon.Information, 8000)
 
     def _say(self, text):
         """Show a speech bubble. Always shown in silent mode; otherwise per ALWAYS_SHOW_BUBBLES."""
@@ -234,13 +267,18 @@ class AspenApp:
 
 
 def pick_avatar(settings, force_select):
+    """Use the saved avatar, or show the picker (first run, --select, or 'ask me every time')."""
     saved = settings.get("avatar")
-    if saved in available_avatars() and not force_select:
+    ask = bool(settings.get("ask_avatar_each_launch", False))
+    if saved in available_avatars() and not (force_select or ask):
         return saved
     current = saved if saved in available_avatars() else config.DEFAULT_AVATAR
-    chosen = AvatarSelector.choose(current) or current
-    settings.set("avatar", chosen)
-    return chosen
+    chosen = AvatarSelector.choose(current, ask)
+    if chosen is None:  # dismissed: use the default for now but do not remember it
+        return current
+    settings.set("avatar", chosen[0])
+    settings.set("ask_avatar_each_launch", chosen[1])
+    return chosen[0]
 
 
 def ask_timers_if_needed(settings, args, test_mode):
@@ -256,7 +294,10 @@ def ask_timers_if_needed(settings, args, test_mode):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(prog="aspen", description="Aspen, your digital desktop companion.")
+    parser = argparse.ArgumentParser(prog="my-woofie", description="My-Woofie, your digital desktop companion.")
+    parser.add_argument("--reset", action="store_true", help="forget saved settings and run setup again")
+    parser.add_argument("--version", action="version", version=f"My-Woofie {config.VERSION}")
+    parser.add_argument("--stop", action="store_true", help="stop a running My-Woofie and exit")
     parser.add_argument("--select", action="store_true", help="choose a different avatar")
     parser.add_argument("--settings", action="store_true", help="open the timer settings at startup")
     parser.add_argument("--test", action="store_true", help="10 s focus / 5 s break, for debugging")
@@ -273,19 +314,30 @@ def main():
                         datefmt="%H:%M:%S")
     app = QApplication([sys.argv[0]] + qt_args)
     app.setQuitOnLastWindowClosed(False)
+    if args.stop:
+        print("Told My-Woofie to stop." if send_command("quit") else "My-Woofie is not running.")
+        return
+    if send_command("ping"):
+        print("My-Woofie is already running. Stop him with: python main.py --stop")
+        return
+    server = InstanceServer(app)
+    server.command_received.connect(lambda command: app.quit() if command == "quit" else None)
     retro.load_font()
     ensure_assets()
+    if args.reset and os.path.isfile(config.SETTINGS_FILE):
+        os.remove(config.SETTINGS_FILE)
+        log.info("Saved settings removed")
     settings = Settings(config.SETTINGS_FILE)
     test_mode = config.TEST_MODE or args.test
     avatar = pick_avatar(settings, force_select=args.select)
     ask_timers_if_needed(settings, args, test_mode)
     timers = resolve_timers(settings, args)
-    log.info("Starting Aspen: avatar=%s, focus=%ss, break=%ss, test_mode=%s",
+    log.info("Starting My-Woofie: avatar=%s, focus=%ss, break=%ss, test_mode=%s",
              avatar, timers["focus"], timers["brk"], test_mode)
-    aspen = AspenApp(app, settings, avatar, timers, test_mode)
+    woofie = WoofieApp(app, settings, avatar, timers, test_mode)
     signal.signal(signal.SIGINT, lambda *_: app.quit())
     code = app.exec()
-    log.info("Aspen stopped")
+    log.info("My-Woofie stopped")
     sys.exit(code)
 
 

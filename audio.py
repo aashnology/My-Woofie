@@ -8,7 +8,7 @@ from PyQt6.QtCore import QTimer
 
 import config
 
-log = logging.getLogger("aspen.audio")
+log = logging.getLogger("woofie.audio")
 
 
 class SoundPlayer:
@@ -36,7 +36,7 @@ class SoundPlayer:
 
     @property
     def silent(self):
-        """True when Aspen should communicate visually only."""
+        """True when My-Woofie should communicate visually only."""
         return self.muted or not config.AUDIO_ENABLED
 
     def _path(self, stem):

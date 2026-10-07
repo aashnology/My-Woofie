@@ -10,7 +10,7 @@ PRESETS = (25, 45, 60, 90, 120, 240)
 class TimerDialog(QDialog):
     def __init__(self, focus_minutes, break_minutes):
         super().__init__()
-        self.setWindowTitle("Aspen: timer settings")
+        self.setWindowTitle("My-Woofie: timer settings")
         self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, True)
         font = retro.family()
         self.setStyleSheet(f"""
@@ -54,7 +54,7 @@ class TimerDialog(QDialog):
         self.brk.setValue(int(break_minutes))
         root.addWidget(self.brk)
 
-        hint = QLabel("Aspen speaks up after this much continuous\ncomputer use, then counts down your break.")
+        hint = QLabel("My-Woofie speaks up after this much continuous\ncomputer use, then counts down your break.")
         hint.setObjectName("hint")
         root.addWidget(hint)
 

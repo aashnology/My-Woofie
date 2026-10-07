@@ -1,4 +1,4 @@
-"""Finite state machine and movement logic for Aspen."""
+"""Finite state machine and movement logic for My-Woofie."""
 import logging
 import math
 import random
@@ -7,7 +7,7 @@ from enum import Enum
 import config
 from timer import Phase
 
-log = logging.getLogger("aspen.pet")
+log = logging.getLogger("woofie.pet")
 
 
 class State(Enum):
@@ -35,7 +35,7 @@ class Pet:
         self._happy_until = 0.0
 
     def set_size(self, size):
-        """Update the sprite size (used when the avatar changes) and keep Aspen on screen."""
+        """Update the sprite size (used when the avatar changes) and keep My-Woofie on screen."""
         right = self.max_x + self.w
         bottom = self.max_y + self.h
         self.w, self.h = size
@@ -78,7 +78,7 @@ class Pet:
     def pet_it(self, now):
         if self.state in (State.ROAM_STATE, State.CHASE_STATE):
             self._happy_until = now + 1.2
-            log.info("Aspen got a pat")
+            log.info("My-Woofie got a pat")
 
     # ----- presentation helpers ------------------------------------------
     def animation(self, now):

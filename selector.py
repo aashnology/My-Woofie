@@ -15,19 +15,21 @@ START_RECT = QRect(0, 350, 200, 48)
 
 
 class AvatarSelector(QDialog):
-    def __init__(self, current=None):
+    def __init__(self, current=None, ask_each_time=False):
         super().__init__()
-        self.setWindowTitle("Aspen: choose your pup")
+        self.setWindowTitle("My-Woofie: choose your pup")
         self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, True)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.ids = available_avatars()
         self.index = self.ids.index(current) if current in self.ids else 0
-        self._previews = {a: load_frames(a, 150)["idle"][0] for a in self.ids}
+        self.ask_each_time = ask_each_time
+        self._previews = {a: load_frames(a, (160, 142))["idle"][0] for a in self.ids}
         self._blink = True
         total_w = len(self.ids) * CARD_W + (len(self.ids) + 1) * GAP
         self.setFixedSize(total_w, 438)
         self._start = QRect((total_w - START_RECT.width()) // 2, START_RECT.y(),
                             START_RECT.width(), START_RECT.height())
+        self._ask = QRect(GAP, 356, 24, 24)
         rng = random.Random(7)
         self._stars = [(rng.randrange(8, total_w - 12), rng.randrange(8, 426), rng.choice((2, 4)))
                        for _ in range(46)]
@@ -40,10 +42,12 @@ class AvatarSelector(QDialog):
         return self.ids[self.index]
 
     @staticmethod
-    def choose(current=None):
-        """Show the dialog. Returns the chosen avatar id, or None if it was dismissed."""
-        dialog = AvatarSelector(current)
-        return dialog.selected if dialog.exec() == QDialog.DialogCode.Accepted else None
+    def choose(current=None, ask_each_time=False):
+        """Show the dialog. Returns (avatar_id, ask_each_time), or None if it was dismissed."""
+        dialog = AvatarSelector(current, ask_each_time)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            return dialog.selected, dialog.ask_each_time
+        return None
 
     def _toggle_blink(self):
         self._blink = not self._blink
@@ -67,17 +71,26 @@ class AvatarSelector(QDialog):
             retro.draw_box(p, box, retro.PAPER, border)
             pixmap = self._previews[avatar]
             p.drawPixmap(rect.x() + (box.width() - pixmap.width()) // 2,
-                         rect.y() + 14 + (150 - pixmap.height()), pixmap)
+                         rect.y() + 14, pixmap)
             info = AVATARS[avatar]
             retro.draw_text(p, QRect(rect.x(), rect.y() + 176, box.width(), 24), info["name"], 14, retro.INK)
             retro.draw_text(p, QRect(rect.x(), rect.y() + 206, box.width(), 20), info["breed"], 8, retro.INK)
 
+        retro.draw_box(p, self._ask, retro.PAPER, retro.INK, shadow=False, px=2)
+        if self.ask_each_time:
+            p.fillRect(self._ask.adjusted(6, 6, -6, -6), retro.GOLD)
+        retro.draw_text(p, QRect(self._ask.right() + 12, self._ask.y(), 260, 24),
+                        "ASK ME EVERY TIME", 8, retro.PAPER, retro.LEFT_VCENTER)
         retro.draw_box(p, self._start.adjusted(0, 0, -4, -4), retro.GOLD, retro.INK)
         retro.draw_text(p, self._start.adjusted(0, 0, -4, -4), "START", 14, retro.INK)
-        retro.draw_text(p, QRect(0, 414, self.width(), 20), "ARROWS: CHOOSE   ENTER: START", 8, retro.PAPER)
+        retro.draw_text(p, QRect(0, 414, self.width(), 20), "ARROWS: CHOOSE   ENTER: START   A: ASK EACH TIME", 8, retro.PAPER)
 
     def mousePressEvent(self, event):
         point = event.position().toPoint()
+        if self._ask.contains(point):
+            self.ask_each_time = not self.ask_each_time
+            self.update()
+            return
         for i in range(len(self.ids)):
             if self._card_rect(i).contains(point):
                 self.index = i
@@ -98,6 +111,9 @@ class AvatarSelector(QDialog):
             self.update()
         elif key == Qt.Key.Key_Right:
             self.index = (self.index + 1) % len(self.ids)
+            self.update()
+        elif key == Qt.Key.Key_A:
+            self.ask_each_time = not self.ask_each_time
             self.update()
         elif key in (Qt.Key.Key_Return, Qt.Key.Key_Enter, Qt.Key.Key_Space):
             self.accept()

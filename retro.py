@@ -7,7 +7,7 @@ from PyQt6.QtGui import QColor, QFont, QFontDatabase
 
 import config
 
-log = logging.getLogger("aspen.retro")
+log = logging.getLogger("woofie.retro")
 
 INK = QColor("#2A1A0A")
 PAPER = QColor("#FFF4D6")

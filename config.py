@@ -1,4 +1,6 @@
-"""Central configuration for Aspen. Every tunable value lives in this file."""
+"""Central configuration for My-Woofie. Every tunable value lives in this file."""
+
+VERSION = "1.0.0"
 import os
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -9,7 +11,7 @@ SETTINGS_FILE = os.path.join(BASE_DIR, "settings.json")
 BREAK_PROMPTS_FILE = os.path.join(BASE_DIR, "break_prompts.txt")
 FOCUS_PROMPTS_FILE = os.path.join(BASE_DIR, "focus_prompts.txt")
 
-# Timers. The defaults below can be changed from the Timer settings dialog (right-click Aspen),
+# Timers. The defaults below can be changed from the Timer settings dialog (right-click My-Woofie),
 # or per run with --focus / --break. Saved choices live in settings.json.
 TEST_MODE = False  # True (or `python main.py --test`) shrinks the timers for debugging in VS Code
 DEFAULT_FOCUS_MINUTES = 240
@@ -26,7 +28,7 @@ AWAY_RESET_SECONDS = TEST_AWAY_SECONDS if TEST_MODE else 15 * 60
 HAUL_DISPLAY_SECONDS = TEST_HAUL_SECONDS if TEST_MODE else 20
 MOUSE_MOVE_THRESHOLD_PX = 6
 
-PET_SPEED = 2                    # pixels per frame; kept low so Aspen stays calm
+PET_SPEED = 2                    # pixels per frame; kept low so My-Woofie stays calm
 AUDIO_ENABLED = True
 
 # Avatar
@@ -51,8 +53,7 @@ BUBBLE_SECONDS = 8
 PROMPT_ORDER = "sequential"      # "sequential" or "random"
 
 # Rendering
-SPRITE_TARGET_PX = 40            # default on-screen size of the dog (about twice a mouse cursor)
-SIZE_CHOICES = {"Tiny": 32, "Small": 40, "Medium": 64, "Large": 96}
+SPRITE_SIZE = (53, 47)           # every dog is drawn on exactly this canvas (width x height, pixels)
 FRAME_INTERVAL_MS = 33
 ANIMATION_FRAME_MS = 400
 LOG_LEVEL = "DEBUG"
