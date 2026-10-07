@@ -78,11 +78,6 @@ Other options: `--select` (pick a different avatar), `--settings` (open the time
 - [User guide](docs/USER_GUIDE.md): everyday use, changing the focus time, turning Aspen off, troubleshooting.
 - [Technical guide](docs/TECHNICAL_GUIDE.md): how the code works (timers, state machine, rendering, audio, assets, configuration reference).
 
-## Credits
-
-- Beagle, Bernese pup and fluffy pup artwork from the project's design sheet.
-- Pixel font: [Press Start 2P](https://fonts.google.com/specimen/Press+Start+2P), licensed under the SIL Open Font License (`assets/fonts/OFL.txt`).
-
 ## License
 
 Released under the [MIT License](LICENSE). © 2026 Aashna Batabyal.
