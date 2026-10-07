@@ -1,0 +1,6 @@
+# Break prompts: one message per line. Lines starting with # are ignored.
+Time for a break! Stand up and stretch.
+Woof! Rest your eyes and look at something far away.
+Water break! Your pup is thirsty too.
+You've earned a walk. Step away for a bit.
+Roll your shoulders and take a deep breath.

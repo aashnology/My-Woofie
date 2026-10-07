@@ -1,0 +1,6 @@
+# Focus prompts: one message per line. Lines starting with # are ignored.
+Break's over! Time to get back to focus.
+Recharged? Let's get back to it!
+Tail wagging, let's finish strong.
+One task at a time. You've got this!
+Fetch that next task!
