@@ -20,7 +20,12 @@ class Phase(Enum):
 
 
 class SessionTimer:
-    def __init__(self, clock=time.monotonic):
+    def __init__(self, focus_limit=None, break_limit=None, away_reset=None, haul_display=None,
+                 clock=time.monotonic):
+        self.focus_limit = config.FOCUS_TIME_LIMIT_SECONDS if focus_limit is None else focus_limit
+        self.break_limit = config.BREAK_TIME_LIMIT_SECONDS if break_limit is None else break_limit
+        self.away_reset = config.AWAY_RESET_SECONDS if away_reset is None else away_reset
+        self.haul_display = config.HAUL_DISPLAY_SECONDS if haul_display is None else haul_display
         self._clock = clock
         now = clock()
         self.phase = Phase.FOCUS
@@ -30,14 +35,26 @@ class SessionTimer:
         self._session_start = now
         self._break_start = None
         self._haul_start = None
-        log.info("Focus session started")
+        log.info("Focus session started (focus %ds, break %ds)", self.focus_limit, self.break_limit)
+
+    def set_limits(self, focus_limit, break_limit):
+        self.focus_limit, self.break_limit = focus_limit, break_limit
+        log.info("Limits changed: focus %ds, break %ds", focus_limit, break_limit)
+
+    def restart_focus(self):
+        """Begin a fresh focus session now (used after the limits are changed)."""
+        now = self._clock()
+        self.phase = Phase.FOCUS
+        self._session_start = now
+        self._last_activity = now
+        self._break_start = self._haul_start = None
 
     def update(self, position):
         """Feed the current cursor position. Returns the new Phase on a change, else None."""
         now = self._clock()
         idle = now - self._last_activity
         if (self.phase is Phase.FOCUS and self._session_start is not None
-                and idle >= config.AWAY_RESET_SECONDS):
+                and idle >= self.away_reset):
             log.info("No mouse movement for %.0fs, focus timer reset", idle)
             self._session_start = None
 
@@ -60,7 +77,7 @@ class SessionTimer:
     def break_remaining(self):
         if self._break_start is None:
             return 0.0
-        return max(0.0, config.BREAK_TIME_LIMIT_SECONDS - (self._clock() - self._break_start))
+        return max(0.0, self.break_limit - (self._clock() - self._break_start))
 
     def _moved(self, position):
         if self._anchor is None:
@@ -74,14 +91,13 @@ class SessionTimer:
 
     def _advance(self, now):
         if self.phase is Phase.FOCUS:
-            if (self._session_start is not None
-                    and now - self._session_start >= config.FOCUS_TIME_LIMIT_SECONDS):
+            if self._session_start is not None and now - self._session_start >= self.focus_limit:
                 return self._enter(Phase.BREAK, now)
         elif self.phase is Phase.BREAK:
-            if now - self._break_start >= config.BREAK_TIME_LIMIT_SECONDS:
+            if now - self._break_start >= self.break_limit:
                 return self._enter(Phase.HAUL, now)
         elif self.phase is Phase.HAUL:
-            if now - self._haul_start >= config.HAUL_DISPLAY_SECONDS:
+            if now - self._haul_start >= self.haul_display:
                 return self._enter(Phase.FOCUS, now)
         return None
 

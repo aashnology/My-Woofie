@@ -22,7 +22,7 @@ class AvatarSelector(QDialog):
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.ids = available_avatars()
         self.index = self.ids.index(current) if current in self.ids else 0
-        self._previews = {a: load_frames(a)["idle"][0] for a in self.ids}
+        self._previews = {a: load_frames(a, 150)["idle"][0] for a in self.ids}
         self._blink = True
         total_w = len(self.ids) * CARD_W + (len(self.ids) + 1) * GAP
         self.setFixedSize(total_w, 438)
@@ -66,7 +66,8 @@ class AvatarSelector(QDialog):
             border = (retro.GOLD if self._blink else retro.RED) if chosen else retro.INK
             retro.draw_box(p, box, retro.PAPER, border)
             pixmap = self._previews[avatar]
-            p.drawPixmap(rect.x() + (box.width() - pixmap.width()) // 2, rect.y() + 10, pixmap)
+            p.drawPixmap(rect.x() + (box.width() - pixmap.width()) // 2,
+                         rect.y() + 14 + (150 - pixmap.height()), pixmap)
             info = AVATARS[avatar]
             retro.draw_text(p, QRect(rect.x(), rect.y() + 176, box.width(), 24), info["name"], 14, retro.INK)
             retro.draw_text(p, QRect(rect.x(), rect.y() + 206, box.width(), 20), info["breed"], 8, retro.INK)

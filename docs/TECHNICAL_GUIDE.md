@@ -10,7 +10,7 @@ This guide explains how Aspen works internally: the architecture, the logic of e
 4. [Timer engine (`timer.py`)](#4-timer-engine-timerpy)
 5. [Pet state machine (`pet.py`)](#5-pet-state-machine-petpy)
 6. [Windows and rendering (`gui.py`, `retro.py`)](#6-windows-and-rendering-guipy-retropy)
-7. [Avatar selection (`selector.py`, `settings.py`)](#7-avatar-selection-selectorpy-settingspy)
+7. [Avatar selection, settings and menus](#7-avatar-selection-settings-and-menus)
 8. [Audio (`audio.py`)](#8-audio-audiopy)
 9. [Speech bubbles and message banks (`prompts.py`)](#9-speech-bubbles-and-message-banks-promptspy)
 10. [Asset pipeline (`assets_builder.py`, `tools/`)](#10-asset-pipeline-assets_builderpy-tools)
@@ -27,7 +27,7 @@ This guide explains how Aspen works internally: the architecture, the logic of e
 - **Privacy by construction.** Aspen never captures pixels, logs keys, reads files or records window titles. The only inputs are the clock and the cursor position.
 - **Modular.** Each concern lives in one module with a small interface, so any piece can be debugged or replaced on its own.
 - **Never crash on missing resources.** Missing sprites are redrawn in memory, missing audio falls back to a system beep, and missing prompt files fall back to a built-in message.
-- **Easy to debug.** `TEST_MODE` shrinks the 4-hour timer to 10 seconds, and every state change is logged.
+- **Easy to debug.** `python main.py --test` shrinks the 4-hour timer to 10 seconds, and every state change is logged.
 
 ## 2. Architecture at a glance
 
@@ -39,6 +39,7 @@ This guide explains how Aspen works internally: the architecture, the logic of e
         ┌───────────┬────────┼─────────┬──────────────┬────────────┐
         ▼           ▼        ▼         ▼              ▼            ▼
    timer.py      pet.py   gui.py    audio.py      prompts.py   settings.py
+                                                                      timer_dialog.py
  SessionTimer     Pet    PetWindow  SoundPlayer   PromptBank    Settings
  (phases)      (FSM +    HudWindow  (events,      (message      (avatar,
                movement) BubbleWin  fallbacks)    rotation)     mute)
@@ -73,15 +74,19 @@ FOCUS ──(focus limit reached)──▶ BREAK ──(break time elapsed)─�
 
 | Phase | Meaning | Leaves when |
 |---|---|---|
-| `FOCUS` | The user is working. | `FOCUS_TIME_LIMIT_SECONDS` of continuous use have passed. |
-| `BREAK` | Aspen is barking; the break countdown runs. | `BREAK_TIME_LIMIT_SECONDS` have passed. |
-| `HAUL` | Break is over; Aspen calls the user back. | `HAUL_DISPLAY_SECONDS` have passed, then a new focus session starts. |
+| `FOCUS` | The user is working. | `focus_limit` seconds of continuous use have passed. |
+| `BREAK` | Aspen is barking; the break countdown runs. | `break_limit` seconds have passed. |
+| `HAUL` | Break is over; Aspen calls the user back. | `haul_display` seconds have passed, then a new focus session starts. |
 
 ### Presence detection
 
 - A position only counts as movement if it is at least `MOUSE_MOVE_THRESHOLD_PX` away from the last position that counted. This filters out tiny jitters.
 - `_last_activity` stores the time of the last counted movement.
-- At each update, **before** recording new movement, the timer computes `idle = now - _last_activity`. If the phase is `FOCUS`, a session is running and `idle >= AWAY_RESET_SECONDS`, the session is cleared. The next movement starts a fresh session. Checking idle time before recording movement means a long gap, such as a laptop sleeping, is correctly treated as time away.
+- At each update, **before** recording new movement, the timer computes `idle = now - _last_activity`. If the phase is `FOCUS`, a session is running and `idle >= away_reset`, the session is cleared. The next movement starts a fresh session. Checking idle time before recording movement means a long gap, such as a laptop sleeping, is correctly treated as time away.
+
+### Adjustable limits
+
+`SessionTimer(focus_limit, break_limit, away_reset, haul_display)` takes its durations as arguments and falls back to `config.py`. `main.py` works out the values for the run (`resolve_timers`): test mode uses the `TEST_*` constants; otherwise the order is command-line flags (`--focus`, `--break`), then the saved `settings.json` values, then `DEFAULT_FOCUS_MINUTES` / `DEFAULT_BREAK_MINUTES`. `set_limits()` and `restart_focus()` apply a change made in the Timer settings dialog without restarting the app.
 
 ### Time source
 
@@ -112,14 +117,14 @@ Alert states take priority: while one is active, cursor chasing is ignored. `set
 
 ### Movement
 
-- **Chasing.** The target is the cursor offset by half the sprite size so Aspen centers on it. Speed is `PET_SPEED × (1 + min(distance / 400, 1))`, so he trots when close and runs at up to double speed when far.
-- **Roaming.** The screen edge is treated as a rectangular loop of length `2 × (width + height)`. Aspen keeps a single distance `s` along that loop. `_point_at(s)` converts it to coordinates, and moving is just increasing or decreasing `s`. This is why he follows the edge cleanly, including around corners.
+- **Chasing.** The target is the cursor offset by half the sprite size so Aspen centers on it. Speed is `PET_SPEED × (1 + 0.5 × min(distance / 600, 1))` (2 to 3 pixels per frame by default), an easy amble that is a little quicker when the cursor is far away. He stops `CHASE_STOP_DISTANCE_PX` from the cursor.
+- **Roaming.** Roaming speed is half of `PET_SPEED`, with frequent rests of two to six seconds. The screen edge is treated as a rectangular loop of length `2 × (width + height)`. Aspen keeps a single distance `s` along that loop. `_point_at(s)` converts it to coordinates, and moving is just increasing or decreasing `s`. This is why he follows the edge cleanly, including around corners.
 - **Returning to the edge.** When roaming resumes from elsewhere (after chasing or an alert), `_nearest_s()` finds the closest point on the loop and Aspen walks there in a straight line before rejoining it.
 - **Bounds.** Positions are clamped to the screen. `set_size()` recomputes bounds when the avatar (and sprite size) changes.
 
 ### Animation selection
 
-`Pet.animation(now)` returns one of `bark`, `haul`, `happy` (just patted), `walk` (moving) or `idle`. `Pet.bob(now)` returns a vertical offset using `abs(sin(...))`, which makes a hop. The GUI picks the frame by time: `index = int(now × 1000 / ANIMATION_FRAME_MS) % frame_count`.
+`Pet.animation(now)` returns one of `bark`, `haul`, `happy` (just patted), `walk` (moving) or `idle`. `Pet.bob(now)` returns a vertical offset using `abs(sin(...))`, which makes a hop. Hop height scales with the sprite height so a small dog does not leap around, and the hop rates are deliberately slow. The GUI picks the frame by time: `index = int(now × 1000 / ANIMATION_FRAME_MS) % frame_count`.
 
 ## 6. Windows and rendering (`gui.py`, `retro.py`)
 
@@ -133,7 +138,8 @@ Aspen is three borderless, always-on-top, translucent windows (`Qt.Tool` keeps t
 
 ### Sprite scaling and flipping
 
-- Frames are scaled with nearest-neighbor (`FastTransformation`) so pixels stay sharp. The scale is a whole number: `round(SPRITE_TARGET_PX / frame_height)`.
+- **Cropping.** `load_frames()` finds the smallest box containing the dog across all of an avatar's frames and crops every frame to it. The dog's size is therefore independent of the canvas.
+- **Scaling.** The target size (`SPRITE_TARGET_PX`, default 40, or the size chosen in the menu) refers to the dog's longest side. For large sizes (a factor of 1.8 or more) frames are scaled by a whole number with nearest-neighbor so pixels stay sharp. For small sizes the frame is enlarged 4× with nearest-neighbor and then reduced smoothly to the exact size, which keeps a tiny dog readable.
 - Facing is handled by mirroring the pixmap. Each avatar declares its native facing (Bailey's art faces left), and the window flips whenever the pet's direction differs from it.
 - Mirrored pixmaps and their masks are cached so nothing is recomputed per frame.
 
@@ -144,13 +150,16 @@ Aspen is three borderless, always-on-top, translucent windows (`Qt.Tool` keeps t
 - **HUD:** 16 segments, colored green, amber then red as the focus meter fills, blue while counting down the break, and a flashing gold "BACK TO WORK!" at the end.
 - **Bubble:** text is wrapped manually with `QFontMetrics` so line spacing stays readable in the bitmap font. The window is sized to the text, and a small stepped tail points at the dog.
 
-## 7. Avatar selection (`selector.py`, `settings.py`)
+## 7. Avatar selection, settings and menus
 
 - `available_avatars()` lists the avatars whose art exists. The selector shows each as a card with its idle frame.
 - Inputs: arrow keys, mouse click, double-click or Enter/Space to confirm, Esc to cancel. The selected card's border blinks.
-- `AvatarSelector.choose(current)` shows the dialog modally and returns the id or `None`.
+- `AvatarSelector.choose(current)` shows the dialog modally and returns the id or `None`. Previews are loaded at 150 px, independent of the on-screen size.
 - **Flow:** on startup `pick_avatar()` uses the saved avatar when there is one, and otherwise (or with `--select`) opens the selector. The tray menu's "Change avatar..." swaps the avatar live: new frames, new native facing, new pet size.
-- `Settings` is a small JSON file (`settings.json`, git-ignored) holding `avatar` and `muted`. Read and write errors are logged and never fatal.
+- `Settings` is a small JSON file (`settings.json`, git-ignored) holding `avatar`, `muted`, `size_px`, `hud_always`, `focus_minutes` and `break_minutes`. Read and write errors are logged and never fatal.
+- **Timer settings.** `timer_dialog.py` is a styled `QDialog` with two spin boxes (focus 1 to 720 minutes, break 1 to 120) and preset buttons. It runs on first launch, with `--settings`, and from the menu.
+- **Menu.** `AspenApp._build_menu()` creates one `QMenu` (timer settings, avatar, size, focus meter, mute, quit). It is attached to the tray icon and also shown when the pet window emits `menu_requested` (right-click), so the controls are reachable even if the tray icon is hidden.
+- **Command line.** `--select`, `--settings`, `--test`, `--focus MIN`, `--break MIN`, parsed with `argparse` (`parse_known_args`, so Qt's own flags still pass through).
 
 ## 8. Audio (`audio.py`)
 
@@ -217,25 +226,28 @@ All values live in `config.py`.
 
 | Constant | Default | Meaning |
 |---|---|---|
-| `TEST_MODE` | `True` | Shrinks timers for debugging. Set `False` for real use. |
-| `FOCUS_TIME_LIMIT_SECONDS` | 10 test / 4 h | Continuous use before a break is demanded. |
-| `BREAK_TIME_LIMIT_SECONDS` | 5 test / 15 min | Break length. |
-| `AWAY_RESET_SECONDS` | 8 test / 15 min | Mouse stillness that counts as being away. |
+| `TEST_MODE` | `False` | `True` (or `--test`) uses 10 s focus, 5 s break, 8 s away. |
+| `DEFAULT_FOCUS_MINUTES` | 240 | Focus time when nothing else is chosen. |
+| `DEFAULT_BREAK_MINUTES` | 15 | Break length when nothing else is chosen. |
+| `TEST_FOCUS_SECONDS`, `TEST_BREAK_SECONDS`, `TEST_AWAY_SECONDS`, `TEST_HAUL_SECONDS` | 10, 5, 8, 4 | Test-mode timings. |
+| `AWAY_RESET_SECONDS` | 15 min | Mouse stillness that counts as being away. |
+| `HAUL_DISPLAY_SECONDS` | 20 | How long the back-to-work state lasts. |
 | `MOUSE_MOVE_THRESHOLD_PX` | 6 | Smallest movement that counts. |
-| `PET_SPEED` | 5 | Base pixels per frame. |
+| `PET_SPEED` | 2 | Base pixels per frame (roaming uses half). |
 | `AUDIO_ENABLED` | `True` | Master sound switch. |
 | `DEFAULT_AVATAR` | `"aspen"` | Highlighted in the selector on first run. |
-| `CHASE_WINDOW_SECONDS` | 5.0 | How long he keeps following after the last movement. |
-| `CHASE_STOP_DISTANCE_PX` | 90 | How close he gets to the cursor. |
-| `HAUL_DISPLAY_SECONDS` | 4 test / 20 | How long the back-to-work state lasts. |
+| `CHASE_WINDOW_SECONDS` | 3.0 | How long he keeps following after the last movement. |
+| `CHASE_STOP_DISTANCE_PX` | 50 | How close he gets to the cursor. |
 | `SOUND_EVENTS`, `SOUND_VOLUMES` | see file | Which sounds play on which event, with delays and volumes. |
-| `SHOW_HUD` | `True` | Show the top HUD. |
+| `SHOW_HUD` | `True` | Allow the top HUD at all. |
+| `HUD_ALWAYS_VISIBLE` | `False` | `False` = HUD only during breaks (menu can override). |
 | `ALWAYS_SHOW_BUBBLES` | `True` | `False` = bubbles only when silent. |
 | `BUBBLE_SECONDS` | 8 | Bubble lifetime. |
 | `PROMPT_ORDER` | `"sequential"` | Or `"random"`. |
-| `SPRITE_TARGET_PX` | 160 | On-screen sprite height. |
+| `SPRITE_TARGET_PX` | 40 | Default on-screen size of the dog's longest side. |
+| `SIZE_CHOICES` | Tiny 32, Small 40, Medium 64, Large 96 | Sizes offered in the menu. |
 | `FRAME_INTERVAL_MS` | 33 | Tick rate. |
-| `ANIMATION_FRAME_MS` | 250 | Time per animation frame. |
+| `ANIMATION_FRAME_MS` | 400 | Time per animation frame. |
 | `LOG_LEVEL` | `"DEBUG"` | Console log verbosity. |
 
 ## 12. Logging and debugging
@@ -251,7 +263,7 @@ INFO | aspen.timer    | Phase BREAK -> HAUL
 
 Debugging tips:
 
-- Keep `TEST_MODE = True` and move the mouse steadily to see a full cycle in about 20 seconds. If the mouse is still for 8 seconds the focus timer resets.
+- Run `python main.py --test` (or set `TEST_MODE = True`) and move the mouse steadily to see a full cycle in about 20 seconds. If the mouse is still for 8 seconds the focus timer resets.
 - Logger names (`aspen.timer`, `aspen.pet`, `aspen.audio`, ...) identify the module a message came from.
 - The timer and pet have no Qt dependency, so you can script them in a plain Python shell with a fake clock.
 

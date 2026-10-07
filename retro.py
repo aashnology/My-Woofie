@@ -42,6 +42,10 @@ def load_font():
     _family = "Courier New"
 
 
+def family():
+    return _family or "Courier New"
+
+
 def pixel_font(pixel_size):
     font = QFont(_family or "Courier New")
     font.setPixelSize(pixel_size)

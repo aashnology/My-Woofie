@@ -91,13 +91,14 @@ class Pet:
         return "walk" if self.moving else "idle"
 
     def bob(self, now):
-        """Vertical offset in pixels (negative = up) for hop animations."""
+        """Vertical offset in pixels (negative = up) for hop animations, scaled to the sprite size."""
+        scale = self.h / 160.0
         if self.state is State.BARK_ALERT_STATE:
-            return -abs(math.sin(now * 8)) * 12
+            return -abs(math.sin(now * 5)) * 12 * scale
         if self.state is State.HAUL_ALERT_STATE:
-            return -abs(math.sin(now * 5)) * 20
+            return -abs(math.sin(now * 3.5)) * 20 * scale
         if now < self._happy_until:
-            return -abs(math.sin(now * 10)) * 10
+            return -abs(math.sin(now * 6)) * 10 * scale
         return 0.0
 
     # ----- movement ------------------------------------------------------
@@ -119,8 +120,8 @@ class Pet:
         target_y = cursor[1] - self.h / 2
         dist = math.hypot(target_x - self.x, target_y - self.y)
         if dist > config.CHASE_STOP_DISTANCE_PX:
-            # trot when close, run when the cursor is far away
-            speed = config.PET_SPEED * (1 + min(dist / 400, 1.0))
+            # an easy trot, a little quicker when the cursor is far away
+            speed = config.PET_SPEED * (1 + 0.5 * min(dist / 600, 1.0))
             self._step_toward(target_x, target_y, speed)
 
     def _roam(self, now):
@@ -132,8 +133,8 @@ class Pet:
             return
         if now < self._pause_until:
             return
-        if random.random() < 0.004:
-            self._pause_until = now + random.uniform(1.0, 3.0)
+        if random.random() < 0.01:
+            self._pause_until = now + random.uniform(2.0, 6.0)
             return
         if random.random() < 0.002:
             self._direction *= -1

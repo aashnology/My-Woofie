@@ -2,8 +2,8 @@
 import logging
 import os
 
-from PyQt6.QtCore import QRect, Qt, pyqtSignal
-from PyQt6.QtGui import QFontMetrics, QPainter, QPixmap, QTransform
+from PyQt6.QtCore import QPoint, QRect, Qt, pyqtSignal
+from PyQt6.QtGui import QFontMetrics, QImage, QPainter, QPixmap, QTransform
 from PyQt6.QtWidgets import QWidget
 
 import config
@@ -24,22 +24,47 @@ def format_clock(seconds):
     return f"{minutes:02d}:{secs:02d}"
 
 
-def load_frames(avatar):
-    """Load an avatar's sprite frames from assets/images/<avatar>, scaled with hard pixel edges."""
-    frames = {}
+def _content_box(images):
+    """Smallest rectangle containing every visible pixel across all frames of an avatar."""
+    x0 = y0 = 10 ** 6
+    x1 = y1 = -1
+    for img in images:
+        for y in range(img.height()):
+            for x in range(img.width()):
+                if img.pixel(x, y) >> 24:
+                    x0, y0, x1, y1 = min(x0, x), min(y0, y), max(x1, x), max(y1, y)
+    return QRect(x0, y0, x1 - x0 + 1, y1 - y0 + 1)
+
+
+def _scale(img, factor):
+    """Large sizes use whole-number nearest scaling (crisp); small sizes are supersampled."""
+    pixmap = QPixmap.fromImage(img)
+    ignore = Qt.AspectRatioMode.IgnoreAspectRatio
+    if factor >= 1.8:
+        n = round(factor)
+        return pixmap.scaled(pixmap.width() * n, pixmap.height() * n, ignore,
+                             Qt.TransformationMode.FastTransformation)
+    big = pixmap.scaled(pixmap.width() * 4, pixmap.height() * 4, ignore,
+                        Qt.TransformationMode.FastTransformation)
+    return big.scaled(max(1, round(pixmap.width() * factor)), max(1, round(pixmap.height() * factor)),
+                      ignore, Qt.TransformationMode.SmoothTransformation)
+
+
+def load_frames(avatar, target_px=None):
+    """Load an avatar's frames, crop them to the dog and scale so its longest side is target_px."""
+    target = target_px or config.SPRITE_TARGET_PX
+    images = {}
     for anim, names in ANIMATIONS.items():
-        frames[anim] = []
+        images[anim] = []
         for name in names:
-            pixmap = QPixmap(os.path.join(config.IMAGE_DIR, avatar, name + ".png"))
-            if pixmap.isNull():
+            img = QImage(os.path.join(config.IMAGE_DIR, avatar, name + ".png"))
+            if img.isNull():
                 log.warning("Sprite %s/%s missing on disk, drawing it in memory", avatar, name)
-                pixmap = QPixmap.fromImage(render_frame(name, avatar))
-            scale = max(1, round(config.SPRITE_TARGET_PX / pixmap.height()))
-            pixmap = pixmap.scaled(
-                pixmap.width() * scale, pixmap.height() * scale,
-                Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.FastTransformation)
-            frames[anim].append(pixmap)
-    return frames
+                img = render_frame(name, avatar)
+            images[anim].append(img.convertToFormat(QImage.Format.Format_ARGB32))
+    box = _content_box([img for group in images.values() for img in group])
+    factor = target / max(box.width(), box.height())
+    return {anim: [_scale(img.copy(box), factor) for img in group] for anim, group in images.items()}
 
 
 def _overlay(widget, click_through):
@@ -55,6 +80,7 @@ def _overlay(widget, click_through):
 class PetWindow(QWidget):
     """Sprite window. Its mask follows the opaque pixels, so clicks anywhere else pass through."""
     clicked = pyqtSignal()
+    menu_requested = pyqtSignal(QPoint)
 
     def __init__(self, frames, native_facing=1):
         super().__init__()
@@ -97,6 +123,8 @@ class PetWindow(QWidget):
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit()
+        elif event.button() == Qt.MouseButton.RightButton:
+            self.menu_requested.emit(event.globalPosition().toPoint())
 
 
 class HudWindow(QWidget):
