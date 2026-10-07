@@ -1,124 +1,81 @@
-# 🐶 Aspen: The Desktop Break Enforcement Companion
+# 🐶 Aspen
 
-Aspen is a pixel-art puppy who lives on your desktop (Windows/macOS). Pick your pup from six dogs, and he trots after your cursor while you work. After **4 hours of continuous computer use** he barks, shows a speech bubble and counts down your break. When the break ends he sends a gentle chime and a "back to work" nudge.
+**A digital companion that lives on your desktop and looks after you while you work.**
 
-Everything runs locally. No network calls, no screen capture, no keylogging, no window titles, no file reading. Presence is detected only from elapsed time and mouse displacement.
+![Python](https://img.shields.io/badge/python-3.9%2B-blue) ![PyQt6](https://img.shields.io/badge/GUI-PyQt6-green) ![License: MIT](https://img.shields.io/badge/license-MIT-yellow)
 
-## Prerequisites
+## Introduction
 
-- Python 3.9+
-- pip
+Long stretches at a screen are easy to lose track of. Aspen is a pixel-art puppy who sits on top of your desktop, trots after your cursor, and keeps quiet company while you work. After **4 hours of continuous computer use** he barks, shows a speech bubble and counts down a break. When the break is over, he calls you back with a gentle chime.
 
-## Install and run
+He is a companion first and a timer second: friendly, a little silly, and built to be easy to read, change and run locally.
+
+![Choose your pup](docs/images/selector.png)
+
+## Meet the pups
+
+Pick your favorite on first launch (you can change it any time from the tray menu).
+
+| | | |
+|:---:|:---:|:---:|
+| <img src="docs/images/avatars/aspen.png" width="140"><br>**Aspen**<br>Golden retriever | <img src="docs/images/avatars/biscuit.png" width="140"><br>**Biscuit**<br>Cream puppy | <img src="docs/images/avatars/cocoa.png" width="140"><br>**Cocoa**<br>Chocolate lab |
+| <img src="docs/images/avatars/bailey.png" width="140"><br>**Bailey**<br>Beagle | <img src="docs/images/avatars/benny.png" width="140"><br>**Benny**<br>Bernese pup | <img src="docs/images/avatars/snow.png" width="140"><br>**Snow**<br>Fluffy white pup |
+
+## What Aspen does
+
+- **Follows your cursor.** He roams the screen edge when you are idle, then trots (or runs, if you are far away) toward the cursor whenever you move the mouse.
+- **Tracks continuous use.** A focus timer runs while you are at the computer. It resets only after 15 minutes without mouse movement, which means you really were away.
+- **Nudges you to take a break.** At the limit he runs to mid-screen, barks, and shows a speech bubble with a break message.
+- **Counts down your break** on a retro game-style HUD and calls you back with a soft chime and a "back to work" message.
+- **Speaks in text when it is quiet.** Mute him from the tray menu or set `AUDIO_ENABLED = False` and every alert appears as a speech bubble instead.
+- **Rotates your own messages.** Edit `break_prompts.txt` and `focus_prompts.txt` to change what he says.
+- **Reacts to pats.** Click him and he hops happily. Clicks anywhere else pass through to your apps.
+- **Remembers your choices.** Avatar and mute state are saved locally.
+
+![HUD and speech bubble](docs/images/hud-and-bubble.png)
+
+## What Aspen does not do
+
+- He does **not** capture your screen, log keystrokes, read your files or record window titles.
+- He does **not** use the network. No accounts, analytics, or cloud services.
+- He does **not** lock your screen or block your input. He nudges; you decide.
+- He does **not** know what you are doing. Presence comes only from elapsed time and mouse movement, so reading or typing without touching the mouse for 15 minutes counts as being away.
+- He does **not** follow you across multiple monitors (the primary screen only) or start automatically at login.
+- He does **not** ship with recorded audio. The bark, howl and chime are synthesized; drop your own WAV files in `assets/audio/` to replace them.
+
+## Quick start
+
+Requirements: Python 3.9+ on Windows or macOS.
 
 ```bash
+git clone https://github.com/aashnology/Woof.git
+cd Woof
 python -m venv venv
 source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 python main.py
 ```
 
-The project ships in `TEST_MODE`: the 4-hour timer is 10 seconds and the break is 5 seconds, so you can see the whole cycle in about 20 seconds (keep moving the mouse). Set `TEST_MODE = False` in `config.py` for real use. Quit from the tray menu or with `Ctrl+C`.
+The project ships in `TEST_MODE`: the 4-hour timer is 10 seconds and the break is 5 seconds, so you can watch the full cycle in about 20 seconds (keep moving the mouse). Set `TEST_MODE = False` in `config.py` for real use. Quit from the tray icon menu or with `Ctrl+C`.
 
-## Avatar selection flow
+Use `python main.py --select` to reopen the avatar picker.
 
-1. On first launch a retro "CHOOSE YOUR PUP" screen appears with six dogs:
-   - **Aspen** (golden retriever), **Biscuit** (cream puppy) and **Cocoa** (chocolate lab), drawn in code
-   - **Bailey** (beagle), **Benny** (Bernese pup) and **Snow** (fluffy white pup), built from the artwork in `Aspen_designs.pdf`
-2. Pick one with the mouse or the arrow keys, then click **START** or press Enter.
-3. Your choice is saved in `settings.json` (git-ignored) and used on every later launch.
-4. To change it later, use **Change avatar...** in the tray menu, or run `python main.py --select`.
+## Customizing
 
-## Cursor interaction
+- **Messages:** one per line in `break_prompts.txt` and `focus_prompts.txt` (lines starting with `#` are ignored). Changes apply without restarting. Set `PROMPT_ORDER` to `"sequential"` or `"random"` in `config.py`.
+- **Sounds:** `assets/audio/puppy_bark.wav` and `soft_howl.wav` play when the break starts, and `soft_chime.wav` when it ends. Replace any file, or change the mapping in `SOUND_EVENTS`.
+- **Art:** animation frames live in `assets/images/<avatar>/`. Replace any PNG to restyle a frame.
+- **Everything else:** timers, speed, HUD and bubble settings are constants at the top of `config.py`.
 
-| State | Behavior |
-|---|---|
-| `ROAM_STATE` | Walks around the screen edge and pauses now and then |
-| `CHASE_STATE` | Trots after your cursor whenever you have moved the mouse in the last 5 seconds, running faster the farther away you are, and sits down near it |
-| `BARK_ALERT_STATE` | Runs to mid-screen and barks when the focus limit is reached |
-| `HAUL_ALERT_STATE` | Bounces excitedly when the break ends |
+## Learn more
 
-Click Aspen to pat him. Clicks anywhere else on his window pass through to your apps. The focus timer resets only after 15 minutes (`AWAY_RESET_SECONDS`) without mouse movement.
+How the code works (timer logic, state machine, rendering, audio, assets pipeline and a configuration reference) is documented in [docs/TECHNICAL_GUIDE.md](docs/TECHNICAL_GUIDE.md).
 
-## Retro HUD and speech bubbles
+## Credits
 
-- A pixel-art **HUD** at the top of the screen shows a focus meter (green → amber → red), the break countdown, and a flashing "BACK TO WORK!" message. Turn it off with `SHOW_HUD = False`.
-- **Speech bubbles** appear above Aspen when the break starts ("Time for a break!") and when it ends ("Time to get back to focus!"). They always appear in silent mode (sounds muted or `AUDIO_ENABLED = False`). With sound on, `ALWAYS_SHOW_BUBBLES = True` shows them too; set it to `False` for bubbles only when silent.
-- Mute from the tray menu (**Mute sounds**) to switch to bubble-only alerts. The choice is remembered.
+- Beagle, Bernese pup and fluffy pup artwork from the project's design sheet.
+- Pixel font: [Press Start 2P](https://fonts.google.com/specimen/Press+Start+2P), licensed under the SIL Open Font License (`assets/fonts/OFL.txt`).
 
-## Sounds and triggers
+## License
 
-Sounds live in `assets/audio/` and are preloaded at startup. Missing files or a missing sound library fall back to system beeps, so audio never crashes the app.
-
-| Event | Trigger | Sounds |
-|---|---|---|
-| `break_start` | Focus timer reaches its limit | `puppy_bark.wav`, then `soft_howl.wav` 650 ms later |
-| `break_end` | Break timer reaches zero | `soft_chime.wav` |
-
-The mapping and volumes are in `config.py` (`SOUND_EVENTS`, `SOUND_VOLUMES`). The default bark, howl and chime are synthesized on first run. To use a real recording, drop your own WAV into `assets/audio/` with the same file name, for example `puppy_bark.wav`. Existing files are never overwritten.
-
-## Customizing messages
-
-Speech bubble text comes from two plain text files in the project root:
-
-- `break_prompts.txt` — shown when it's time to take a break
-- `focus_prompts.txt` — shown when it's time to get back to work
-
-Write one message per line. Blank lines and lines starting with `#` are ignored. Files are re-read when they change, so edits apply without restarting Aspen. Set `PROMPT_ORDER` in `config.py` to `"sequential"` (default) or `"random"`. If a file is missing or empty, Aspen falls back to a built-in message.
-
-## Art style and custom avatars
-
-All avatars share one look: chunky near-black outlines, flat cell shading (lighter top-left edges, darker bottom-right edges) and a warm palette. Each dog has ten frames: `idle_0/1`, `walk_0/1`, `bark_0/1`, `haul_0/1` and `happy_0/1`, stored in `assets/images/<avatar>/`. Replace any PNG to restyle a frame; existing files are never overwritten.
-
-- **Drawn dogs** (Aspen, Biscuit, Cocoa) are painted in `assets_builder.py` from a small palette, so a recolor is a few hex codes.
-- **Design dogs** (Bailey, Benny, Snow) start from a clean base sprite in `assets/designs/<avatar>.png`. Animation frames are made by editing that sprite: head lifts, paw lifts, open mouth and happy eyes, positioned by the `spec` entry in `AVATARS`.
-- To regenerate the base sprites from the PDF: `pip install pillow numpy`, install poppler (`pdfimages`), then run `python tools/import_designs.py Aspen_designs.pdf`.
-- To add a dog, add an entry to `AVATARS` (and a base sprite in `assets/designs/` for a design dog). It shows up in the selector automatically.
-
-## Configuration
-
-All tunables are in `config.py`: `TEST_MODE`, `FOCUS_TIME_LIMIT_SECONDS`, `BREAK_TIME_LIMIT_SECONDS`, `AWAY_RESET_SECONDS`, `PET_SPEED`, `AUDIO_ENABLED`, `SOUND_EVENTS`, `SHOW_HUD`, `ALWAYS_SHOW_BUBBLES`, `BUBBLE_SECONDS`, `PROMPT_ORDER`, `SPRITE_TARGET_PX`.
-
-## Project structure
-
-```
-aspen/
-├── main.py              # entry point, app controller, tray menu
-├── gui.py               # pet window, retro HUD, speech bubble
-├── selector.py          # retro avatar selection screen
-├── retro.py             # pixel palette, bitmap font, pixel boxes
-├── pet.py               # finite state machine and movement
-├── timer.py             # focus/break timers and presence detection
-├── audio.py             # preloaded sounds, event sequencing, beep fallbacks
-├── prompts.py           # message bank loader and rotation
-├── settings.py          # saved avatar and mute state
-├── assets_builder.py    # generates avatars and sounds on first run
-├── config.py            # all tunable constants
-├── break_prompts.txt    # break messages
-├── focus_prompts.txt    # back-to-work messages
-├── requirements.txt
-├── tools/import_designs.py  # PDF artwork -> base sprites (optional)
-└── assets/
-    ├── designs/         # base sprites for the design dogs
-    ├── images/<avatar>/ # animation frames
-    ├── audio/           # wav files
-    └── fonts/           # Press Start 2P (SIL Open Font License, see OFL.txt)
-```
-
-## Push to GitHub
-
-```bash
-git init
-git add .
-git commit -m "Initial commit: Aspen desktop break companion"
-git branch -M main
-git remote add origin https://github.com/<your-username>/aspen.git
-git push -u origin main
-```
-
-Add a `LICENSE` file for the code and a screenshot or GIF of Aspen to this README before sharing. The bundled font keeps its own license (`assets/fonts/OFL.txt`).
-
-## Platform notes
-
-- On macOS, the system tray and notifications depend on your notification settings for Terminal/VS Code.
-- Mouse position is read through Qt, so no Accessibility or Input Monitoring permission is needed.
+Released under the [MIT License](LICENSE). © 2026 Aashna Batabyal.
