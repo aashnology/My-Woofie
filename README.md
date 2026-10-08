@@ -123,6 +123,7 @@ python -m unittest discover -s tests
 
 ## Documentation
 
+- [**Complete project guide (PDF)**](docs/My-Woofie-Guide.pdf): one downloadable document covering the idea, Version 1, Version 2, how it works, privacy, install, testing and a hackathon demo script. Regenerate it with `python tools/make_guide.py`.
 - [User guide](docs/USER_GUIDE.md): everyday use, changing the focus time, resetting, turning him off, troubleshooting.
 - [Technical guide](docs/TECHNICAL_GUIDE.md): how the code works (timers, state machine, rendering, audio, assets, configuration reference).
 - [Changelog](CHANGELOG.md): what is in each version.
