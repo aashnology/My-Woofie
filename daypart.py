@@ -75,5 +75,18 @@ def parse_clock(value, fallback):
         return fallback
 
 
+_hour_override = None
+
+
+def set_hour_override(hour):
+    """Pretend it is this hour (0-23). For testing night behaviour: python main.py --hour 1"""
+    global _hour_override
+    _hour_override = None if hour is None else int(hour) % 24
+
+
 def now():
-    return datetime.now()
+    """The current local time, or today at the overridden hour."""
+    current = datetime.now()
+    if _hour_override is not None:
+        return current.replace(hour=_hour_override)
+    return current

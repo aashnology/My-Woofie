@@ -55,6 +55,9 @@ class Pet:
         self.carrying = False
         self._eat_until = 0.0
         self.events = []                 # "treat_eaten", "ball_picked", "ball_delivered"
+        self._chasing = False            # stays True until he has actually reached the cursor
+        self._last_update = None
+        self._frames = 1.0               # elapsed time in 33 ms frames, so speed does not depend on timer accuracy
 
     # ----- screens -------------------------------------------------------------------------------
     @property
@@ -137,7 +140,17 @@ class Pet:
     def speed(self):
         return config.PET_SPEED * self.speed_scale * self.mood_scale
 
+    def _measure_frames(self, now):
+        """Movement is scaled by real elapsed time, so a slow or uneven timer cannot make him stall."""
+        if self._last_update is None or now <= self._last_update:
+            frames = 1.0
+        else:
+            frames = (now - self._last_update) / (config.FRAME_INTERVAL_MS / 1000.0)
+        self._last_update = now
+        self._frames = min(max(frames, 0.25), 4.0)
+
     def update(self, cursor, chase_active, now):
+        self._measure_frames(now)
         self.moving = False
         cursor_screen = self._screen_index(cursor)
         self.alert_screen = cursor_screen
@@ -152,9 +165,11 @@ class Pet:
             self._treat(now)
         elif self.state is State.FETCH_STATE:
             self._fetch(cursor, now)
-        elif chase_active:
+        elif chase_active or self._chasing:
             self._set_state(State.CHASE_STATE)
-            self._chase(cursor)
+            caught = self._chase(cursor)
+            # Keep running after the mouse stops, until he has really caught up with the cursor.
+            self._chasing = chase_active or not caught
         else:
             self._set_state(State.ROAM_STATE)
             self._roam(now)
@@ -260,19 +275,23 @@ class Pet:
             return True
         if abs(dx) > 1:
             self.facing = 1 if dx > 0 else -1
+        speed *= self._frames
         step = min(speed, dist)
         self.x, self.y = self._clamp(self.x + dx / dist * step, self.y + dy / dist * step)
         self.moving = True
         return dist <= speed
 
     def _chase(self, cursor):
+        """Run toward the cursor. Returns True once he is close enough to sit down beside it."""
         target_x = cursor[0] - self.w / 2
         target_y = cursor[1] - self.h / 2
         dist = math.hypot(target_x - self.x, target_y - self.y)
-        if dist > config.CHASE_STOP_DISTANCE_PX:
-            # an easy trot, a little quicker when the cursor is far away
-            speed = self.speed * (1 + 0.5 * min(dist / 600, 1.0))
-            self._step_toward(target_x, target_y, speed)
+        if dist <= config.CHASE_STOP_DISTANCE_PX:
+            return True
+        # An easy trot when close, a proper run when far away, so he crosses the screen and catches up.
+        speed = self.speed * (1 + 3.5 * min(dist / 700, 1.0))
+        self._step_toward(target_x, target_y, speed)
+        return False
 
     def _treat(self, now):
         if self.bone is None:
@@ -338,7 +357,7 @@ class Pet:
             return
         if random.random() < 0.002:
             self._direction *= -1
-        self._s += self._direction * self.speed * 0.5
+        self._s += self._direction * self.speed * 0.5 * self._frames
         new_x, new_y = self._point_at(self._s)
         if abs(new_x - self.x) > 0.1:
             self.facing = 1 if new_x > self.x else -1

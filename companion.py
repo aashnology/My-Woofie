@@ -2,7 +2,6 @@
 import logging
 import math
 import time
-from datetime import datetime
 
 from PyQt6.QtCore import QRect, QTimer
 from PyQt6.QtGui import QCursor, QIcon
@@ -651,7 +650,7 @@ class WoofieApp:
     def _update_rhythm(self, now):
         if self.session.phase is not Phase.FOCUS or self.pet.state in ALERT_STATES:
             return
-        wall = datetime.now()
+        wall = daypart.now()
         idle = self.session.seconds_since_move()
         sleeping = self.pet.state is State.SLEEP_STATE
         if sleeping:
@@ -668,11 +667,12 @@ class WoofieApp:
         if self.rhythm.morning_due(wall, self.settings.get("last_greeting")):
             self.settings.set("last_greeting", wall.date().isoformat())
             self.pet.stretch(now, 3.0)
-            self._say(daypart.pick(daypart.MORNING_MESSAGES, wall.day))
+            self.bubble_force(daypart.pick(daypart.MORNING_MESSAGES, wall.day))
         elif self.rhythm.bedtime_due(wall, self._last_bedtime):
             self._last_bedtime = wall
             self.emote.show_emote("z2", now, 3.0)
-            self._say(daypart.pick(daypart.BEDTIME_MESSAGES, wall.hour))
+            self.bubble_force(daypart.pick(daypart.BEDTIME_MESSAGES, wall.hour))
+            log.info("Bedtime nudge shown (it is %02d:%02d)", wall.hour, wall.minute)
 
     def _update_mood_display(self, now):
         if now < self._next_mood_emote or self.emote.active or self.pet.state in ALERT_STATES:

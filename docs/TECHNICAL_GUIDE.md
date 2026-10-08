@@ -334,6 +334,10 @@ New states `SLEEP_STATE`, `TREAT_STATE` and `FETCH_STATE`. `Pet.set_screens(rect
 
 Every dog is exactly **53 x 47 pixels** (`config.SPRITE_SIZE`, approved on a real Windows desktop). Add a new avatar by registering it in `assets_builder.AVATARS` with its frames; `load_frames` crops the art to the dog and fits it on the 53 x 47 canvas. `tests/test_gui_v2.py` and `tests/test_launch_prompts.py` fail if any avatar, with any accessory, comes out a different size, so run the tests after adding one. Do not change `SPRITE_SIZE`.
 
+### Chasing and time-based movement (2.0.2)
+
+`Pet.update` measures the real time since the last call (`_measure_frames`) and scales every step by it, so movement does not depend on timer accuracy. `_chase` returns True once he is within `CHASE_STOP_DISTANCE_PX`; `_chasing` stays set until then, so a chase that started always finishes even after `chase_active` turns False (the old behaviour stopped halfway). Chase speed grows from 1x to 4.5x the base speed with distance. `python main.py --hour H` calls `daypart.set_hour_override` to test night and morning behaviour.
+
 ### Frames and accessories
 
 `load_frames(avatar, size, accessory)` still returns exactly 53 x 47 frames. `derive_frames` adds `sleep` (squashed happy frame) and `stretch` (play-bow squash of idle) from the drawn poses. Hats are placed at the crown found from the frame's own pixels (Bailey searches only his head side because his tail is the highest point); the dog is drawn a few pixels smaller to make room. The bandana uses a fixed neck spot per dog (`NECK_SPOT`). Accessories are baked into the frames before flipping, so they flip with the dog.

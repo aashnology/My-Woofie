@@ -35,6 +35,8 @@ Every dog is exactly 53 × 47 pixels. He only looks at the clock and where your 
 
 ## 3. The right-click menu
 
+**The settings are hidden by default.** There is no window or menu bar: only the dog (and the tray icon, where your system shows one) is on screen. To change the focus time, break length or anything else, right-click directly on the dog (the rest of his window lets clicks pass through) or on the tray icon. Until you do, everything stays at its defaults.
+
 Right-click the dog (or the tray icon) for:
 
 - **Pause My-Woofie** hides him until you untick it (double-clicking the tray icon does the same).

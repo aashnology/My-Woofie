@@ -3,7 +3,7 @@ import os
 
 import paths
 
-VERSION = "2.0.1"
+VERSION = "2.0.2"
 
 BASE_DIR = paths.resource_dir()
 DATA_DIR = paths.data_dir()
@@ -41,7 +41,7 @@ AUDIO_ENABLED = True
 DEFAULT_AVATAR = "aspen"
 
 # Cursor following
-CHASE_WINDOW_SECONDS = 3.0       # keep following for this long after the mouse last moved
+CHASE_WINDOW_SECONDS = 3.0       # he sits beside the cursor this long after the mouse stops, but a chase in progress always finishes
 CHASE_STOP_DISTANCE_PX = 50      # sit down this close to the cursor
 
 # Sounds: event name -> list of (sound file stem in assets/audio, delay in milliseconds).
@@ -120,7 +120,7 @@ DEFAULT_SLEEP_START_HOUR = 22    # the pup curls up for a nap when you pause mou
 DEFAULT_SLEEP_END_HOUR = 6
 DEFAULT_BEDTIME_HOUR = 23        # the gentle "go to bed" nudge starts after this hour
 BEDTIME_REPEAT_MINUTES = 60
-SLEEP_AFTER_IDLE_SECONDS = 120
+SLEEP_AFTER_IDLE_SECONDS = 60
 MORNING_START_HOUR = 5
 MORNING_END_HOUR = 11
 

@@ -1,7 +1,7 @@
 """My-Woofie entry point.
 
 Usage: python main.py [--select] [--reset] [--settings] [--test] [--focus MIN] [--break MIN]
-                      [--stop] [--stats] [--delete-data] [--version]
+                      [--stop] [--stats] [--delete-data] [--hour H] [--version]
 """
 import argparse
 import logging
@@ -77,6 +77,8 @@ def parse_args():
     parser.add_argument("--select", action="store_true", help="choose a different avatar")
     parser.add_argument("--settings", action="store_true", help="open the timer settings at startup")
     parser.add_argument("--test", action="store_true", help="10 s focus / 5 s break, for debugging")
+    parser.add_argument("--hour", type=int, metavar="H", choices=range(24),
+                        help="pretend it is this hour (0-23), to test night and morning behaviour")
     parser.add_argument("--stats", action="store_true", help="print the last 7 days of break statistics and exit")
     parser.add_argument("--delete-data", action="store_true",
                         help="delete all statistics and progress (mood, wardrobe) and exit")
@@ -127,6 +129,10 @@ def main():
     server.command_received.connect(lambda command: app.quit() if command == "quit" else None)
     retro.load_font()
     ensure_assets()
+    if args.hour is not None:
+        import daypart
+        daypart.set_hour_override(args.hour)
+        log.info("Pretending it is %02d:00 (--hour)", args.hour)
     if args.reset and os.path.isfile(config.SETTINGS_FILE):
         os.remove(config.SETTINGS_FILE)
         log.info("Saved settings removed")

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.2
+
+- **Chasing now always reaches the cursor.** Before, he stopped 3 seconds after the mouse stopped, often halfway across the screen. A chase now continues until he has caught up (then he sits beside the cursor and later goes back to roaming). He also runs faster the further away the cursor is, and movement is scaled by real elapsed time, so a slow or uneven timer cannot make him stall. This applies to every dog.
+- **Bedtime nudge fixed.** The late-night and morning messages were created but hidden when sounds were on (only the 3-second Zzz icon showed). They now always appear as a speech bubble. Napping now starts after about a minute of a still mouse at night (was two).
+- **`--hour H`** pretends it is hour H (0 to 23), for testing night and morning behaviour, for example `python main.py --hour 1`.
+- **Project guide PDF** rewritten for tone and consistency, with Title Case headings, a clear note that settings are hidden until you right-click, and no hackathon references.
+
 ## 2.0.1
 
 - **Timer prompt at every start:** the focus and break dialog now appears on every launch (after a Windows test showed it only appeared the first time). The dialog has an **ASK ME EVERY TIME I START** tick box, also available in Settings, System. Untick it to keep your saved times. Cancelling keeps the saved times, and `--focus` / `--break` / `--test` skip the prompt.

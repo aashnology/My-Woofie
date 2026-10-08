@@ -95,7 +95,9 @@ On first launch you choose a pup and your focus and break times. After that he s
 | Delete my statistics | **Settings, DATA, Delete my data** (or `python main.py --delete-data`) |
 | See a full cycle quickly | `python main.py --test` (10 s focus, 5 s break; keep moving the mouse) |
 
-All options: `--select`, `--reset`, `--settings`, `--stop`, `--test`, `--focus MIN`, `--break MIN`, `--stats`, `--delete-data`, `--version`.
+All options: `--select`, `--reset`, `--settings`, `--stop`, `--test`, `--focus MIN`, `--break MIN`, `--stats`, `--delete-data`, `--hour H` (pretend it is that hour, to test night behaviour), `--version`.
+
+> **Where are the settings?** They are hidden until you click. Right-click directly on the dog (or on the tray icon) to open the menu, then choose **Settings...**. Until you do, everything stays at its defaults.
 
 On macOS, optional automatic fullscreen detection needs `pip install pyobjc-framework-Quartz`; without it use Presentation mode.
 
@@ -124,7 +126,7 @@ python -m unittest discover -s tests
 
 ## Documentation
 
-- [**Complete project guide (PDF)**](docs/My-Woofie-Guide.pdf): one downloadable document covering the idea, Version 1, Version 2, how it works, privacy, install, testing and a hackathon demo script. Regenerate it with `python tools/make_guide.py`.
+- [**Complete project guide (PDF)**](docs/My-Woofie-Guide.pdf): one downloadable document covering the idea, Version 1, Version 2, how it works, privacy, install, testing and a short demo script. Regenerate it with `python tools/make_guide.py`.
 - [User guide](docs/USER_GUIDE.md): everyday use, changing the focus time, resetting, turning him off, troubleshooting.
 - [Technical guide](docs/TECHNICAL_GUIDE.md): how the code works (timers, state machine, rendering, audio, assets, configuration reference).
 - [Changelog](CHANGELOG.md): what is in each version.

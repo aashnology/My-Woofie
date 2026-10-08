@@ -152,7 +152,7 @@ class SettingsWindow(QDialog):
         self._spin("sleep_start", 0, 23, grid, 3, "NIGHT STARTS AT (HOUR, 0-23)")
         self._spin("sleep_end", 0, 23, grid, 4, "NIGHT ENDS AT (HOUR, 0-23)")
         self._spin("bedtime_hour", 0, 23, grid, 5, "BEDTIME NUDGE FROM (HOUR, 0-23)")
-        self._hint(grid, 6, "Night naps only happen when the mouse has been still for a couple of minutes.")
+        self._hint(grid, 6, "Night naps only happen when the mouse has been still for about a minute.")
         return page
 
     def _sound_tab(self):
