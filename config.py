@@ -3,7 +3,7 @@ import os
 
 import paths
 
-VERSION = "2.0.0"
+VERSION = "2.0.1"
 
 BASE_DIR = paths.resource_dir()
 DATA_DIR = paths.data_dir()
@@ -60,7 +60,9 @@ BUBBLE_SECONDS = 8
 PROMPT_ORDER = "sequential"      # "sequential" or "random"
 
 # Rendering
-SPRITE_SIZE = (53, 47)           # every dog is drawn on exactly this canvas (width x height, pixels)
+# LOCKED: every dog, including any avatar added in the future, must fit exactly this canvas
+# (width x height, pixels). This size was approved on a real Windows desktop; do not change it.
+SPRITE_SIZE = (53, 47)
 FRAME_INTERVAL_MS = 33
 ANIMATION_FRAME_MS = 400
 LOG_LEVEL = "DEBUG"

@@ -278,10 +278,12 @@ class WoofieApp:
         if self.test_mode:
             self._say("Test mode is on, so the timers are fixed.")
             return
-        chosen = TimerDialog.choose(self.settings.pref("focus_minutes"), self.settings.pref("break_minutes"))
+        chosen = TimerDialog.choose(self.settings.pref("focus_minutes"), self.settings.pref("break_minutes"),
+                                    self.settings.pref("ask_timers_each_launch"))
         if chosen is None:
             return
-        self.settings.update_many({"focus_minutes": chosen[0], "break_minutes": chosen[1]})
+        self.settings.update_many({"focus_minutes": chosen[0], "break_minutes": chosen[1],
+                                   "ask_timers_each_launch": chosen[2]})
         self._apply_settings(restart_timers=True)
         self._say(f"Got it! First break in {minutes_text(chosen[0])}.")
 

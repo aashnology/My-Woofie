@@ -17,7 +17,7 @@ DEFAULTS = dict(
     night_sleep=True, sleep_start=config.DEFAULT_SLEEP_START_HOUR, sleep_end=config.DEFAULT_SLEEP_END_HOUR,
     bedtime_hour=config.DEFAULT_BEDTIME_HOUR,
     volume=80, muted=False, fullscreen_aware=True, hud_always=config.HUD_ALWAYS_VISIBLE,
-    stats_enabled=True,
+    stats_enabled=True, ask_timers_each_launch=True,
 )
 
 # Settings "speed" slider (1..5) -> multiplier on config.PET_SPEED

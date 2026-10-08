@@ -50,13 +50,23 @@ def pick_avatar(settings, force_select):
 
 
 def ask_timers_if_needed(settings, args, test_mode):
-    """First launch (or --settings): let the user choose focus and break lengths."""
+    """Ask for the focus and break lengths on first launch, with --settings, and (by default) every launch.
+
+    The "ask me every time" box in the dialog turns the every-launch question off. Cancelling keeps
+    the saved times."""
     from timer_dialog import TimerDialog
-    if test_mode or (settings.get("focus_minutes") is not None and not args.settings):
+    first_run = settings.get("focus_minutes") is None
+    if test_mode or not (first_run or args.settings or settings.pref("ask_timers_each_launch")):
         return
-    chosen = TimerDialog.choose(settings.pref("focus_minutes"), settings.pref("break_minutes"))
-    focus, brk = chosen or (settings.pref("focus_minutes"), settings.pref("break_minutes"))
-    settings.update_many({"focus_minutes": focus, "break_minutes": brk})
+    chosen = TimerDialog.choose(settings.pref("focus_minutes"), settings.pref("break_minutes"),
+                                settings.pref("ask_timers_each_launch"))
+    if chosen is None:
+        if first_run:
+            settings.update_many({"focus_minutes": settings.pref("focus_minutes"),
+                                  "break_minutes": settings.pref("break_minutes")})
+        return
+    settings.update_many({"focus_minutes": chosen[0], "break_minutes": chosen[1],
+                          "ask_timers_each_launch": chosen[2]})
 
 
 def parse_args():

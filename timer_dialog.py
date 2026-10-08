@@ -1,6 +1,6 @@
 """Retro-styled dialog for choosing how long to focus and how long to break."""
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QDialog, QHBoxLayout, QLabel, QPushButton, QSpinBox, QVBoxLayout
+from PyQt6.QtWidgets import QCheckBox, QDialog, QHBoxLayout, QLabel, QPushButton, QSpinBox, QVBoxLayout
 
 import retro
 
@@ -8,7 +8,7 @@ PRESETS = (25, 45, 60, 90, 120, 240)
 
 
 class TimerDialog(QDialog):
-    def __init__(self, focus_minutes, break_minutes):
+    def __init__(self, focus_minutes, break_minutes, ask_each_time=True):
         super().__init__()
         self.setWindowTitle("My-Woofie: timer settings")
         self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, True)
@@ -25,6 +25,9 @@ class TimerDialog(QDialog):
             QPushButton:hover {{ background: #FFE08A; }}
             QPushButton#preset {{ background: #FFF4D6; padding: 6px 8px; }}
             QPushButton#preset:hover {{ background: #FFE08A; }}
+            QCheckBox {{ color: #FFF4D6; font-family: "{font}"; font-size: 9px; spacing: 10px; }}
+            QCheckBox::indicator {{ width: 18px; height: 18px; background: #FFF4D6; border: 4px solid #FFC53D; }}
+            QCheckBox::indicator:checked {{ background: #5BD36B; }}
         """)
         root = QVBoxLayout(self)
         root.setContentsMargins(28, 22, 28, 22)
@@ -58,6 +61,10 @@ class TimerDialog(QDialog):
         hint.setObjectName("hint")
         root.addWidget(hint)
 
+        self.ask = QCheckBox("ASK ME EVERY TIME I START")
+        self.ask.setChecked(bool(ask_each_time))
+        root.addWidget(self.ask)
+
         buttons = QHBoxLayout()
         cancel = QPushButton("CANCEL")
         cancel.clicked.connect(self.reject)
@@ -69,9 +76,9 @@ class TimerDialog(QDialog):
         root.addLayout(buttons)
 
     @staticmethod
-    def choose(focus_minutes, break_minutes):
-        """Show the dialog. Returns (focus, break) in minutes, or None if cancelled."""
-        dialog = TimerDialog(focus_minutes, break_minutes)
+    def choose(focus_minutes, break_minutes, ask_each_time=True):
+        """Show the dialog. Returns (focus, break, ask_each_time), or None if cancelled."""
+        dialog = TimerDialog(focus_minutes, break_minutes, ask_each_time)
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            return dialog.focus.value(), dialog.brk.value()
+            return dialog.focus.value(), dialog.brk.value(), dialog.ask.isChecked()
         return None

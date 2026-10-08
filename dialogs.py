@@ -175,7 +175,8 @@ class SettingsWindow(QDialog):
         self._widgets["autostart"] = box
         self._check("fullscreen_aware", grid, 1, "HOLD ALERTS DURING FULLSCREEN")
         self._check("hud_always", grid, 2, "ALWAYS SHOW THE FOCUS METER")
-        self._hint(grid, 3, "Fullscreen detection compares window sizes only. It never reads titles "
+        self._check("ask_timers_each_launch", grid, 3, "ASK FOR FOCUS AND BREAK TIME AT EVERY START")
+        self._hint(grid, 4, "Fullscreen detection compares window sizes only. It never reads titles "
                             "or screen contents. On macOS it needs the optional pyobjc-framework-Quartz "
                             "package, or use Presentation mode from the menu.")
         return page
