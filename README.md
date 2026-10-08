@@ -113,7 +113,7 @@ pip install -r requirements-dev.txt
 python packaging/build.py     # runs the tests, then PyInstaller; result in dist/
 ```
 
-Build on the system you are targeting. Pushing a tag such as `v2.0.0` runs `packaging/release-workflow.yml` (copy it to `.github/workflows/release.yml` once; GitHub needs the `workflow` permission to add it), which builds both and attaches them to a GitHub Release. Packaged builds keep settings, stats and editable text files in your user folder (`%APPDATA%\\My-Woofie`, `~/Library/Application Support/My-Woofie`).
+Build on the system you are targeting. Pushing a tag such as `v2.0.0` runs `.github/workflows/release.yml`, which builds both and attaches them to a GitHub Release. Packaged builds keep settings, stats and editable text files in your user folder (`%APPDATA%\\My-Woofie`, `~/Library/Application Support/My-Woofie`).
 
 ## Tests
 

@@ -344,7 +344,7 @@ Fullscreen detection reads only window and monitor rectangles (and, on macOS, wi
 
 ### Packaging
 
-`packaging/my_woofie.spec` bundles `assets/` and the text files; `packaging/build.py` runs the tests then PyInstaller; `packaging/release-workflow.yml` (copied to `.github/workflows/`) builds Windows and macOS on version tags. In a packaged app `paths.data_dir()` is the per-user folder and `paths.user_file()` copies the editable text files there on first run. Packaging was verified on Linux (build, `--version`, `--stats`, headless start); Windows and macOS builds run in CI.
+`packaging/my_woofie.spec` bundles `assets/` and the text files; `packaging/build.py` runs the tests then PyInstaller; `.github/workflows/release.yml` builds Windows and macOS on version tags. In a packaged app `paths.data_dir()` is the per-user folder and `paths.user_file()` copies the editable text files there on first run. Packaging was verified on Linux (build, `--version`, `--stats`, headless start); Windows and macOS builds run in CI.
 
 ### V2 configuration constants (`config.py`)
 

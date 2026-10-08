@@ -15,7 +15,7 @@
 - **Multi-monitor:** roams between monitors, chases the cursor across them, alerts and HUD appear on the cursor's monitor; reacts to monitors being plugged or removed.
 - **Start at login** (Windows registry Run key, macOS LaunchAgent, Linux autostart file) and a richer tray menu (click for status, double-click to pause).
 - **Local stats:** weekly summary window, `--stats`, **Delete my data** and `--delete-data`, optional recording switch.
-- **Packaging:** PyInstaller spec, `packaging/build.py`, GitHub Actions release workflow (`packaging/release-workflow.yml`), per-user data folder for packaged apps.
+- **Packaging:** PyInstaller spec, `packaging/build.py`, GitHub Actions release workflow (`.github/workflows/release.yml`), per-user data folder for packaged apps.
 - New modules: `companion.py`, `stats.py`, `mood.py`, `microbreak.py`, `tips.py`, `daypart.py`, `toys.py`, `wardrobe.py`, `dialogs.py`, `fullscreen.py`, `autostart.py`, `paths.py`. `main.py` is now a thin launcher.
 - Tests grew from 19 to 101.
 
