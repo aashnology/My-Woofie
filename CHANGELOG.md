@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.1
+
+- **Timer prompt at every start:** the focus and break dialog now appears on every launch (after a Windows test showed it only appeared the first time). The dialog has an **ASK ME EVERY TIME I START** tick box, also available in Settings, System. Untick it to keep your saved times. Cancelling keeps the saved times, and `--focus` / `--break` / `--test` skip the prompt.
+- **Dog size locked at 53 x 47 pixels** (approved on a real Windows desktop). The size is documented in `config.py`, and tests fail if any current or future avatar, with or without an accessory, is a different size.
+
 ## 2.0.0 (Version 2)
 
 - **Snooze:** "Snooze 5 min" on the break card, limited per focus cycle (default 2, configurable 0 to 5). Snoozes are counted in the stats and lower mood.

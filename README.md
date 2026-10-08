@@ -34,6 +34,7 @@ On your desktop every dog is exactly **53 × 47 pixels**, shown here at true siz
 - **Nudges you to take a break.** At the limit he barks, shows a speech bubble and counts down the break on a retro game-style HUD, then calls you back with a soft chime.
 - **Speaks in text when it is quiet.** Mute him and every alert appears as a speech bubble instead.
 - **Rotates your own messages.** Edit `break_prompts.txt` and `focus_prompts.txt` to change what he says.
+- **Asks how long to focus and break at every start** (untick "ask me every time" in that dialog to keep your saved times).
 - **Lets you pick, switch or reset your dog.** Choose on first launch, tick "ask me every time" to choose at every start, or reset everything from the menu.
 - **Is easy to stop.** Right-click and choose Quit, or run `python main.py --stop` from any terminal. You can also pause him.
 

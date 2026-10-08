@@ -46,6 +46,7 @@ Right-click the dog (or the tray icon) for:
 - **Weekly summary...** breaks taken and skipped, snoozes, focus time and streak.
 - **Settings...** all options in tabs: Timers, Pet, Sound, System, Data. The focus timer restarts if you change the focus or break length.
 - **Change avatar...** pick another dog, or tick "ask me every time".
+- **Focus and break time at every start:** a small dialog asks each time you launch. Untick **ASK ME EVERY TIME I START** (there or in Settings, System) to keep your saved times.
 - **Always show focus meter** shows the retro meter at the top of the screen all the time. By default it only appears during breaks.
 - **Mute sounds (bubbles only)** silences audio; he speaks with speech bubbles instead.
 - **Reset all settings...** forgets everything saved and runs the setup screens again.

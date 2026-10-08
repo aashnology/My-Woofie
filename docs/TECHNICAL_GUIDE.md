@@ -330,6 +330,10 @@ Debugging tips:
 
 New states `SLEEP_STATE`, `TREAT_STATE` and `FETCH_STATE`. `Pet.set_screens(rects)` takes all monitors: roaming follows the perimeter of the monitor he stands on, he occasionally walks to another (`SCREEN_HOP_SECONDS`), chasing is clamped to the whole virtual desktop and alerts go to the monitor under the cursor. Fetch has three sub-steps (wait while the ball is held or unthrown, chase while it is in play, carry it to the cursor and drop it) and reports `ball_picked` and `ball_delivered` in `pet.events`. Entering BREAK or HAUL removes toys and wakes him.
 
+### Adding a new avatar (size rule)
+
+Every dog is exactly **53 x 47 pixels** (`config.SPRITE_SIZE`, approved on a real Windows desktop). Add a new avatar by registering it in `assets_builder.AVATARS` with its frames; `load_frames` crops the art to the dog and fits it on the 53 x 47 canvas. `tests/test_gui_v2.py` and `tests/test_launch_prompts.py` fail if any avatar, with any accessory, comes out a different size, so run the tests after adding one. Do not change `SPRITE_SIZE`.
+
 ### Frames and accessories
 
 `load_frames(avatar, size, accessory)` still returns exactly 53 x 47 frames. `derive_frames` adds `sleep` (squashed happy frame) and `stretch` (play-bow squash of idle) from the drawn poses. Hats are placed at the crown found from the frame's own pixels (Bailey searches only his head side because his tail is the highest point); the dog is drawn a few pixels smaller to make room. The bandana uses a fixed neck spot per dog (`NECK_SPOT`). Accessories are baked into the frames before flipping, so they flip with the dog.
