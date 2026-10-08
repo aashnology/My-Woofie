@@ -12,8 +12,9 @@ log = logging.getLogger("woofie.audio")
 
 
 class SoundPlayer:
-    def __init__(self, muted=False):
+    def __init__(self, muted=False, volume=0.8):
         self.muted = muted
+        self.volume = volume            # 0..1, from the Settings window; scales every sound
         self._pygame = None
         self._winsound = None
         self._sounds = {}
@@ -70,6 +71,7 @@ class SoundPlayer:
         sound = self._sounds.get(stem)
         if sound is not None:
             try:
+                sound.set_volume(min(1.0, config.SOUND_VOLUMES.get(stem, 0.7) * self.volume / 0.8))
                 sound.play()
                 return
             except Exception as exc:

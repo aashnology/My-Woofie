@@ -1,0 +1,19 @@
+# Break tips: one per line as  category|text.
+# Categories: eyes, stretch, water, posture, walk, breathe. Lines starting with # are ignored.
+eyes|Look at something 20 feet away for 20 seconds.
+eyes|Blink slowly ten times, then close your eyes for a few breaths.
+eyes|Look out a window and find the farthest thing you can see.
+stretch|Stand up and reach both arms overhead for 10 seconds.
+stretch|Roll your shoulders back five times, then forward five times.
+stretch|Gently tilt your head to each side and hold for 10 seconds.
+stretch|Stretch your wrists: palms up, then palms down, 10 seconds each.
+stretch|Stand and touch your toes, or as far as feels comfortable.
+water|Fill your water bottle and have a few sips.
+water|Your pup is thirsty too. Go and get a glass of water.
+posture|Drop your shoulders and sit tall, feet flat on the floor.
+posture|Slide your chair in, screen at arm's length, top of the screen at eye level.
+walk|Take a short walk around the room or down the hall.
+walk|Step outside for a minute and get some fresh air.
+walk|Walk to another room and back before you sit down again.
+breathe|Breathe in for 4 counts, out for 6. Repeat five times.
+breathe|Close your eyes and take five slow, deep breaths.

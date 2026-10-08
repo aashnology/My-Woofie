@@ -5,3 +5,7 @@ venv/
 .vscode/
 .DS_Store
 settings.json
+dist/
+build/
+stats.json
+pet_state.json

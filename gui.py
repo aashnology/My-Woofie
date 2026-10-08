@@ -1,6 +1,7 @@
 """Transparent, always-on-top overlay windows: the pet, the retro HUD and the speech bubble."""
 import logging
 import os
+import time
 
 from PyQt6.QtCore import QPoint, QRect, Qt, pyqtSignal
 from PyQt6.QtGui import QFontMetrics, QImage, QPainter, QPixmap, QTransform
@@ -8,6 +9,7 @@ from PyQt6.QtWidgets import QWidget
 
 import config
 import retro
+import wardrobe
 from assets_builder import ANIMATIONS, render_frame
 
 log = logging.getLogger("woofie.gui")
@@ -61,10 +63,32 @@ def _fit(img, factor, width, height):
     return canvas
 
 
-def load_frames(avatar, size=None):
+def _squash(pixmap, sx, sy):
+    """Squash a frame toward its bottom edge, keeping the canvas size (used for sleep and stretch)."""
+    w, h = pixmap.width(), pixmap.height()
+    sw, sh = max(1, round(w * sx)), max(1, round(h * sy))
+    scaled = pixmap.scaled(sw, sh, Qt.AspectRatioMode.IgnoreAspectRatio,
+                           Qt.TransformationMode.FastTransformation)
+    canvas = QPixmap(w, h)
+    canvas.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(canvas)
+    painter.drawPixmap((w - sw) // 2, h - sh, scaled)
+    painter.end()
+    return canvas
+
+
+def derive_frames(frames):
+    """Add the V2 poses that are built from the drawn ones: curled-up sleep and a play-bow stretch."""
+    frames["sleep"] = [_squash(frames["happy"][0], 1.0, 0.90), _squash(frames["happy"][0], 1.0, 0.86)]
+    frames["stretch"] = [_squash(frames["idle"][0], 1.0, 0.82), _squash(frames["idle"][1], 1.0, 0.90)]
+    return frames
+
+
+def load_frames(avatar, size=None, accessory=None):
     """Load an avatar's frames, crop them to the dog and fit them onto a fixed-size canvas.
 
     Every frame of every avatar comes out exactly `size` pixels (default config.SPRITE_SIZE).
+    With an accessory the dog is drawn a little smaller to leave room for it on the same canvas.
     """
     width, height = size or config.SPRITE_SIZE
     images = {}
@@ -77,9 +101,14 @@ def load_frames(avatar, size=None):
                 img = render_frame(name, avatar)
             images[anim].append(img.convertToFormat(QImage.Format.Format_ARGB32))
     box = _content_box([img for group in images.values() for img in group])
-    factor = min(width / box.width(), height / box.height())
-    return {anim: [_fit(img.copy(box), factor, width, height) for img in group]
-            for anim, group in images.items()}
+    fit_height = height - wardrobe.reserve_rows(accessory) if accessory else height
+    factor = min(width / box.width(), fit_height / box.height())
+    frames = {anim: [_fit(img.copy(box), factor, width, height) for img in group]
+              for anim, group in images.items()}
+    if accessory:
+        frames = {anim: [wardrobe.apply(pix, accessory, avatar) for pix in group]
+                  for anim, group in frames.items()}
+    return derive_frames(frames)
 
 
 def _overlay(widget, click_through):
@@ -95,6 +124,8 @@ def _overlay(widget, click_through):
 class PetWindow(QWidget):
     """Sprite window. Its mask follows the opaque pixels, so clicks anywhere else pass through."""
     clicked = pyqtSignal()
+    pressed = pyqtSignal()
+    released = pyqtSignal()
     menu_requested = pyqtSignal(QPoint)
 
     def __init__(self, frames, native_facing=1):
@@ -138,8 +169,13 @@ class PetWindow(QWidget):
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit()
+            self.pressed.emit()
         elif event.button() == Qt.MouseButton.RightButton:
             self.menu_requested.emit(event.globalPosition().toPoint())
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.released.emit()
 
 
 class HudWindow(QWidget):
@@ -153,6 +189,10 @@ class HudWindow(QWidget):
         self.setGeometry(screen_rect.center().x() - self.WIDTH // 2, screen_rect.top() + 8,
                          self.WIDTH, self.HEIGHT)
         self._state = ("FOCUS", 0, "", retro.GREEN)
+
+    def move_to_screen(self, screen_rect):
+        """Place the bar at the top centre of the given monitor."""
+        self.move(screen_rect.center().x() - self.WIDTH // 2, screen_rect.top() + 8)
 
     def set_state(self, label, fraction, time_text, color):
         """fraction in 0..1 fills the bar; None shows the label alone, centered."""
@@ -230,3 +270,240 @@ class BubbleWindow(QWidget):
         for i, line in enumerate(self._lines):
             retro.draw_text(p, QRect(self.PAD, self.PAD + i * self.LINE_H, self.MAX_TEXT_W + 40, 10),
                             line, 8, retro.INK, retro.LEFT_VCENTER)
+
+
+def wrap_text(text, pixel_size, max_width):
+    """Split text into lines that fit max_width in the pixel font. Returns (lines, widest line)."""
+    metrics = QFontMetrics(retro.pixel_font(pixel_size))
+    lines, current = [], ""
+    for word in text.split():
+        trial = f"{current} {word}".strip()
+        if current and metrics.horizontalAdvance(trial) > max_width:
+            lines.append(current)
+            current = word
+        else:
+            current = trial
+    lines.append(current)
+    return lines, max(metrics.horizontalAdvance(line) for line in lines)
+
+
+ICONS = {
+    "heart": (["..RR.RR..", ".RRRRRRR.", ".RRWRRRR.", ".RRRRRRR.", "..RRRRR..", "...RRR...", "....R...."], 3),
+    "z1": (["ZZZZZ", "...ZZ", "..ZZ.", ".ZZ..", "ZZZZZ"], 3),
+    "z2": (["ZZZZ", "..ZZ", ".ZZ.", "ZZZZ"], 2),
+    "sweat": ([".S.", "SSS", "SSS", ".S."], 3),
+    "star": (["..Y..", ".YYY.", "YYYYY", ".YYY.", "Y...Y"], 3),
+    "sparkle": (["..Y..", "..Y..", "YYYYY", "..Y..", "..Y.."], 3),
+}
+
+
+def icon_pixmap(name):
+    rows, scale = ICONS[name]
+    img = wardrobe._art_image(rows, outline=False)
+    return QPixmap.fromImage(img).scaled(img.width() * scale, img.height() * scale,
+                                         Qt.AspectRatioMode.IgnoreAspectRatio,
+                                         Qt.TransformationMode.FastTransformation)
+
+
+class EmoteWindow(QWidget):
+    """A small icon (heart, Zzz, sweat drop, star) that floats beside the dog's head."""
+
+    def __init__(self):
+        super().__init__()
+        _overlay(self, click_through=True)
+        self._pixmaps = {}
+        self._name = None
+        self._until = 0.0
+        self.resize(40, 40)
+
+    def show_emote(self, name, now, seconds=2.0):
+        self._name = name
+        self._until = now + seconds
+        if name not in self._pixmaps:
+            self._pixmaps[name] = icon_pixmap(name)
+        self.resize(self._pixmaps[name].size())
+        self.update()
+        self.show()
+
+    @property
+    def active(self):
+        return self._name is not None
+
+    def clear(self):
+        self._name = None
+        self.hide()
+
+    def tick(self, now, pet_x, pet_y, sprite_w, sleeping=False):
+        """Follow the dog; Zzz alternates its two shapes; hide when the time is up."""
+        if self._name is None:
+            return
+        if not sleeping and now >= self._until:
+            self.clear()
+            return
+        if sleeping and self._name in ("z1", "z2"):
+            wanted = "z1" if int(now * 1.5) % 2 == 0 else "z2"
+            if wanted != self._name:
+                self._name = wanted
+                if wanted not in self._pixmaps:
+                    self._pixmaps[wanted] = icon_pixmap(wanted)
+                self.resize(self._pixmaps[wanted].size())
+                self.update()
+        self.move(round(pet_x + sprite_w - 6), round(pet_y - self.height() + 8))
+
+    def paintEvent(self, event):
+        if self._name is not None:
+            QPainter(self).drawPixmap(0, 0, self._pixmaps[self._name])
+
+
+class ToyWindow(QWidget):
+    """The fetch ball (grab it and throw it) or the treat bone (click-through)."""
+    grabbed = pyqtSignal()
+    dragged = pyqtSignal(float, float)       # top-left x, y while dragging
+    released = pyqtSignal(float, float)      # throw velocity in pixels per frame
+
+    ART = {
+        "ball": (["..LLL..", ".LWLLLL", "LWLLLLL", "LLLLLLL", "LLLLLWL", ".LLLLWL", "..LLL.."], 2),
+        "bone": (["CC....CC", "CCCCCCCC", "CCCCCCCC", "CC....CC"], 2),
+    }
+
+    def __init__(self, kind):
+        super().__init__()
+        self.kind = kind
+        _overlay(self, click_through=(kind != "ball"))
+        rows, scale = self.ART[kind]
+        img = wardrobe._art_image(rows)
+        self._pixmap = QPixmap.fromImage(img).scaled(img.width() * scale, img.height() * scale,
+                                                     Qt.AspectRatioMode.IgnoreAspectRatio,
+                                                     Qt.TransformationMode.FastTransformation)
+        self.setFixedSize(self._pixmap.size())
+        self.setMask(self._pixmap.mask())
+        self._grab = None
+        self._samples = []
+
+    def paintEvent(self, event):
+        QPainter(self).drawPixmap(0, 0, self._pixmap)
+
+    def place(self, x, y):
+        self.move(round(x), round(y))
+
+    def mousePressEvent(self, event):
+        if self.kind == "ball" and event.button() == Qt.MouseButton.LeftButton:
+            point = event.globalPosition()
+            self._grab = (point.x() - self.x(), point.y() - self.y())
+            self._samples = [(time.monotonic(), point.x(), point.y())]
+            self.grabbed.emit()
+
+    def mouseMoveEvent(self, event):
+        if self._grab is None:
+            return
+        point = event.globalPosition()
+        now = time.monotonic()
+        self._samples = [s for s in self._samples if now - s[0] < 0.12] + [(now, point.x(), point.y())]
+        x, y = point.x() - self._grab[0], point.y() - self._grab[1]
+        self.move(round(x), round(y))
+        self.dragged.emit(x, y)
+
+    def mouseReleaseEvent(self, event):
+        if self._grab is None:
+            return
+        self._grab = None
+        from toys import velocity_from_samples
+        vx, vy = velocity_from_samples(self._samples)
+        self._samples = []
+        self.released.emit(vx, vy)
+
+
+class AlertPanel(QWidget):
+    """Retro card under the HUD: break guidance with Snooze, or a micro-break with Done / Skip."""
+    WIDTH, HEIGHT = 428, 150
+    snooze_clicked = pyqtSignal()
+    dismiss_clicked = pyqtSignal()
+    done_clicked = pyqtSignal()
+    skip_clicked = pyqtSignal()
+
+    def __init__(self):
+        super().__init__()
+        _overlay(self, click_through=False)
+        self.setFixedSize(self.WIDTH, self.HEIGHT)
+        self.mode = "break"
+        self._title = ""
+        self._lines = []
+        self._time = ""
+        self._snooze_left = 0
+        self._snooze_text = "SNOOZE"
+        self._left = QRect(14, 98, 192, 32)
+        self._right = QRect(214, 98, 192, 32)
+        self._hover = None
+
+    def move_to_screen(self, screen_rect):
+        self.move(screen_rect.center().x() - self.WIDTH // 2, screen_rect.top() + 76)
+
+    def show_break(self, tip_title, tip_text, snooze_left, snooze_minutes):
+        self.mode = "break"
+        self._title = "BREAK TIME: " + tip_title
+        self._lines, _ = wrap_text(tip_text, 8, 380)
+        self._snooze_left = snooze_left
+        self._snooze_text = f"SNOOZE {snooze_minutes:g} MIN ({snooze_left} LEFT)"
+        self._set_visible()
+
+    def show_micro(self, tip_title, tip_text):
+        self.mode = "micro"
+        self._title = "QUICK BREAK: " + tip_title
+        self._lines, _ = wrap_text(tip_text, 8, 380)
+        self._set_visible()
+
+    def _set_visible(self):
+        self.update()
+        self.show()
+
+    def set_tip(self, tip_title, tip_text):
+        prefix = "BREAK TIME: " if self.mode == "break" else "QUICK BREAK: "
+        self._title = prefix + tip_title
+        self._lines, _ = wrap_text(tip_text, 8, 380)
+        self.update()
+
+    def set_snooze_left(self, left, minutes):
+        if left != self._snooze_left:
+            self._snooze_left = left
+            self._snooze_text = f"SNOOZE {minutes:g} MIN ({left} LEFT)"
+            self.update()
+
+    def set_time(self, text):
+        if text != self._time:
+            self._time = text
+            self.update()
+
+    def _button(self, painter, rect, text, fill, enabled=True):
+        color = fill if enabled else retro.TRACK
+        retro.draw_box(painter, rect.adjusted(0, 0, -4, -4), color, retro.INK, shadow=False, px=2)
+        retro.draw_text(painter, rect.adjusted(0, 0, -4, -4), text, 8,
+                        retro.INK if enabled else retro.PAPER)
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        box = QRect(0, 0, self.WIDTH - SHADOW, self.HEIGHT - SHADOW)
+        retro.draw_box(p, box, retro.NAVY, retro.GOLD)
+        retro.draw_text(p, QRect(16, 12, 300, 18), self._title, 10, retro.GOLD, retro.LEFT_VCENTER)
+        retro.draw_text(p, QRect(box.width() - 108, 12, 92, 18), self._time, 10, retro.PAPER,
+                        Qt.AlignmentFlag.AlignRight.value | Qt.AlignmentFlag.AlignVCenter.value)
+        for i, line in enumerate(self._lines[:3]):
+            retro.draw_text(p, QRect(16, 40 + i * 16, 392, 12), line, 8, retro.PAPER, retro.LEFT_VCENTER)
+        if self.mode == "break":
+            self._button(p, self._left, self._snooze_text, retro.AMBER, self._snooze_left > 0)
+            self._button(p, self._right, "OK, ON IT!", retro.GREEN)
+        else:
+            self._button(p, self._left, "DONE", retro.GREEN)
+            self._button(p, self._right, "SKIP", retro.PAPER)
+
+    def mousePressEvent(self, event):
+        if event.button() != Qt.MouseButton.LeftButton:
+            return
+        point = event.position().toPoint()
+        if self._left.contains(point):
+            if self.mode == "break":
+                if self._snooze_left > 0:
+                    self.snooze_clicked.emit()
+            else:
+                self.done_clicked.emit()
+        elif self._right.contains(point):
+            (self.dismiss_clicked if self.mode == "break" else self.skip_clicked).emit()

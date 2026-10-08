@@ -1,2 +1,4 @@
 PyQt6>=6.5
 pygame>=2.5
+# Optional, macOS only: lets My-Woofie notice fullscreen apps by window size (never titles).
+# pyobjc-framework-Quartz>=9; sys_platform == "darwin"

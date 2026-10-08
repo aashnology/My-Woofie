@@ -1,4 +1,4 @@
-# My-Woofie Technical Guide (Version 1)
+# My-Woofie Technical Guide (Version 2)
 
 This guide explains how My-Woofie works internally: the architecture, the logic of each module, the features built on top, and how to extend them. For installation and a feature overview, see the [README](../README.md).
 
@@ -20,6 +20,7 @@ This guide explains how My-Woofie works internally: the architecture, the logic 
 14. [Stopping, single instance and pausing](#14-stopping-single-instance-and-pausing-instancepy)
 15. [Tests](#15-tests)
 16. [Known limitations](#16-known-limitations)
+17. [Version 2 additions](#17-version-2-additions)
 
 ---
 
@@ -249,7 +250,7 @@ All values live in `config.py`.
 | `BUBBLE_SECONDS` | 8 | Bubble lifetime. |
 | `PROMPT_ORDER` | `"sequential"` | Or `"random"`. |
 | `SPRITE_SIZE` | (53, 47) | Exact on-screen size of every dog (width, height). |
-| `VERSION` | `"1.0.0"` | Shown by `--version`. |
+| `VERSION` | `"2.0.0"` | Shown by `--version`. |
 | `FRAME_INTERVAL_MS` | 33 | Tick rate. |
 | `ANIMATION_FRAME_MS` | 400 | Time per animation frame. |
 | `LOG_LEVEL` | `"DEBUG"` | Console log verbosity. |
@@ -288,13 +289,63 @@ Debugging tips:
 
 ## 15. Tests
 
-`python -m unittest discover -s tests` runs 19 tests with no GUI needed: the timer (cycle, limits, away reset, jitter), the pet (states, chasing, bounds, resize), the message banks (rotation, comments, fallback, live reload) and settings (round trip, corrupt file). The timer takes an injectable clock, so hours are simulated instantly.
+`python -m unittest discover -s tests` runs 101 tests (set `QT_QPA_PLATFORM=offscreen` for the few that build Qt widgets). Version 2 added tests for snooze, break quality and deferral, stats and streaks, mood and daily limits, micro-breaks, day rhythm, tips, ball physics, autostart, multi-monitor roaming, fetch and treats, and frame sizes with every accessory. The original 19 cover: the timer (cycle, limits, away reset, jitter), the pet (states, chasing, bounds, resize), the message banks (rotation, comments, fallback, live reload) and settings (round trip, corrupt file). The timer takes an injectable clock, so hours are simulated instantly.
 
 ## 16. Known limitations
 
 - Verified with headless runs and unit-style simulations; behavior on real Windows and macOS desktops (click-through masks, tray notifications, audio devices) should be checked on your machine.
 - Presence is mouse-only by design, so working without touching the mouse looks like being away.
-- Only the primary monitor is used.
+- Multi-monitor roaming and fullscreen detection are exercised by unit tests and headless runs, not on real multi-monitor Windows or macOS setups.
+- Automatic fullscreen detection is off on Linux and, on macOS, needs the optional Quartz package (use Presentation mode otherwise).
 - Window masks for click-through can behave differently on macOS.
-- There is no start-at-login option or packaged installer yet.
+- Packaged builds are produced by CI for Windows and macOS and are unsigned, so the OS may show a security prompt on first launch.
 - The default sounds are synthesized and sound artificial compared with real recordings.
+
+## 17. Version 2 additions
+
+### Module map
+
+| Module | Role | Qt needed? |
+|---|---|---|
+| `companion.py` | `WoofieApp`: owns every window and part, runs the 33 ms tick (what V1 kept in `main.py`) | yes |
+| `main.py` | Argument parsing, `--stats`, `--delete-data`, single instance, startup dialogs | yes (lazy) |
+| `stats.py` | Per-day counters in `stats.json`, week summary, streaks, delete | no |
+| `mood.py` | `Mood` (0-100, event deltas, drift) and `PetState` (daily limits, accessory, `pet_state.json`) | no |
+| `microbreak.py` | Micro-break scheduler driven by focus-elapsed seconds | no |
+| `tips.py` | `category\|text` tip bank with live reload | no |
+| `daypart.py` | Night windows (wrap past midnight), morning greeting, bedtime nudges | no |
+| `toys.py` | `Ball` physics, `Bone`, throw velocity | no |
+| `fullscreen.py` | `FullscreenDetector` (Windows ctypes, macOS Quartz, otherwise off) | no |
+| `autostart.py` | Start at login (registry / LaunchAgent / .desktop) | no |
+| `paths.py` | Source versus packaged locations of resources and user data | no |
+| `wardrobe.py` | Pixel-art accessories drawn onto frames | yes |
+| `dialogs.py` | Settings window, weekly summary, wardrobe | yes |
+| `gui.py` | adds `EmoteWindow`, `ToyWindow`, `AlertPanel`, `derive_frames`, press/release signals | yes |
+
+### Timer additions
+
+`SessionTimer` gained `snooze(seconds)` (only in BREAK, limited by `max_snoozes`, sets the session start so the break returns after the snooze), `break_taken()` (active share of the break at most `BREAK_ACTIVE_TOLERANCE`), `defer_alerts` (an overdue break waits, then fires at once) and `pop_events()` returning `taken`, `skipped`, `snoozed` and `away`. `WoofieApp._handle_timer_events()` turns those into stats and mood changes.
+
+### Pet additions
+
+New states `SLEEP_STATE`, `TREAT_STATE` and `FETCH_STATE`. `Pet.set_screens(rects)` takes all monitors: roaming follows the perimeter of the monitor he stands on, he occasionally walks to another (`SCREEN_HOP_SECONDS`), chasing is clamped to the whole virtual desktop and alerts go to the monitor under the cursor. Fetch has three sub-steps (wait while the ball is held or unthrown, chase while it is in play, carry it to the cursor and drop it) and reports `ball_picked` and `ball_delivered` in `pet.events`. Entering BREAK or HAUL removes toys and wakes him.
+
+### Frames and accessories
+
+`load_frames(avatar, size, accessory)` still returns exactly 53 x 47 frames. `derive_frames` adds `sleep` (squashed happy frame) and `stretch` (play-bow squash of idle) from the drawn poses. Hats are placed at the crown found from the frame's own pixels (Bailey searches only his head side because his tail is the highest point); the dog is drawn a few pixels smaller to make room. The bandana uses a fixed neck spot per dog (`NECK_SPOT`). Accessories are baked into the frames before flipping, so they flip with the dog.
+
+### Overlay windows
+
+`EmoteWindow` (heart, Zzz, sweat, star) and the treat bone are click-through; the fetch ball and `AlertPanel` are interactive and use `WA_ShowWithoutActivating` so they never steal focus. When fullscreen detection, Presentation mode or Pause is active, `_hide_overlays(True)` hides every window while the timer keeps running.
+
+### Privacy
+
+Fullscreen detection reads only window and monitor rectangles (and, on macOS, window layer and transparency). It never reads titles, owner names or pixels. `stats.json` holds only integer counters per date.
+
+### Packaging
+
+`packaging/my_woofie.spec` bundles `assets/` and the text files; `packaging/build.py` runs the tests then PyInstaller; `packaging/release-workflow.yml` (copied to `.github/workflows/`) builds Windows and macOS on version tags. In a packaged app `paths.data_dir()` is the per-user folder and `paths.user_file()` copies the editable text files there on first run. Packaging was verified on Linux (build, `--version`, `--stats`, headless start); Windows and macOS builds run in CI.
+
+### V2 configuration constants (`config.py`)
+
+`DEFAULT_SNOOZE_MINUTES`, `DEFAULT_MAX_SNOOZES`, `BREAK_ACTIVE_TOLERANCE`, `MICRO_*`, `MOOD_EVENTS`, `DROOPY_SPEED_FACTOR`, `STREAK_GAP_DAYS`, `ACCESSORIES`, `PET_HOLD_SECONDS`, `MAX_TREATS_PER_DAY`, `FETCH_IDLE_TIMEOUT_SECONDS`, `BALL_*`, `DEFAULT_SLEEP_START_HOUR`, `DEFAULT_BEDTIME_HOUR`, `FULLSCREEN_POLL_SECONDS`, `SCREEN_HOP_SECONDS`. User-editable defaults live in `settings.DEFAULTS`.
